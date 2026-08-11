@@ -1,0 +1,640 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0C021F4D766830E959EB99EA /* KeyboardPatternTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8969CF4A8D6D4B7B5015976A /* KeyboardPatternTests.swift */; };
+		12C006D4C5A8025742E71E23 /* CatProfileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BCA12D86647544EDDEE2C44 /* CatProfileStoreTests.swift */; };
+		16C192AF198C5F6FD89C4104 /* AccessibilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7510B18B6101DB919013CACB /* AccessibilityManager.swift */; };
+		1725AF91B7850B49EEF7B35B /* CatDetectedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D71C0D7A0EC1B1C22075E0 /* CatDetectedView.swift */; };
+		2171A36AF13F218740134FA1 /* CatProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A53659847F5D5C57B242BC6 /* CatProfile.swift */; };
+		3623737F72E2C2DA6E9661AE /* RollingEventBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B021F202971215B065F81338 /* RollingEventBuffer.swift */; };
+		3E248F5FAC8AC142F4F0BB44 /* CatOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9F72F76967443756F762F3 /* CatOverlayController.swift */; };
+		446803A5289E76794E8556CD /* CatAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0BA36A71A63C9E38F212321 /* CatAvatarView.swift */; };
+		453C5CA402098BE606C6A6EB /* DetectionRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 935322EE0495102242302415 /* DetectionRules.swift */; };
+		4C1E95D8DB4107F99DC3D7F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F3E02F95AEFF811D7B86A27 /* Assets.xcassets */; };
+		5901A3FBCEFC158C08E97D45 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C015984B636A07950A8786 /* MenuBarView.swift */; };
+		5A8B48B1DF2805848FECF036 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD4A80B959678AEC6D2C5C22 /* AppState.swift */; };
+		67BB9C4BE50F9DD7035C0C94 /* DetectionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0B525D67D1CA17F09B7C00 /* DetectionSettingsView.swift */; };
+		6FF817497D98BFD41205E10F /* PawGuardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C5F97024103EE8231561794 /* PawGuardApp.swift */; };
+		70A1B8C28F2A91FF8F9D6C63 /* CatProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF66CED9999A0617A3198619 /* CatProfileStore.swift */; };
+		815346937549F34689064F3C /* Statistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85042BB9E2B8ADACA546A52A /* Statistics.swift */; };
+		90EE88F0ECA806A765AAD273 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA0F1B2F585B825F87BBF11 /* SettingsView.swift */; };
+		9AAFEB50C7CC4F78BD5F723B /* KeyboardEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54130B0C11195EB8C6364C3F /* KeyboardEventMonitor.swift */; };
+		9E3140903D005A56ED3CDA9B /* CatMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC344EA56B53D025AA796910 /* CatMessageTests.swift */; };
+		A68E93592E69138F26A9BDBF /* CountdownRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7103D6BC5F9D5BA0242DE897 /* CountdownRing.swift */; };
+		A9F536EA100EF64962BD6121 /* CatDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C47588703DFEE5FB57A4DC3 /* CatDetector.swift */; };
+		AE6BA8E0EE92317813DEBEE4 /* ProtectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F08F6F94AE8B25622DC95518 /* ProtectionManager.swift */; };
+		B14506CD35665C663BF3DC8E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574E281211D3882C67FDDAAB /* OnboardingView.swift */; };
+		B6B6F6C58CCE26083CE06E80 /* KeyboardEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF3BD1FCA93042C116F0D1C /* KeyboardEvent.swift */; };
+		BAC1BD6274D6EC83BD2CAB67 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FE2E497503C122130DD7F92 /* StatisticsView.swift */; };
+		BF9A63EB574B8514AD31D06A /* PawAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C4DAEE536B239905CC971F /* PawAnimation.swift */; };
+		C3D0BF7C7D69BAA0E6BB3138 /* CatMessageFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 362DA06D5FC2E55BE14A6FD2 /* CatMessageFormatter.swift */; };
+		C666508F7AE2B39B6E15CB80 /* CatPhotoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2844D721FADF02DA5D6D18 /* CatPhotoManager.swift */; };
+		CACC3C2DD3A8B551BA40CCDA /* KeyboardGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF7863F793FA0BE2C8FE2D5C /* KeyboardGeometry.swift */; };
+		D80A90970A63F8091E99CE81 /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DDC455639509B40796F6556 /* AppearanceSettingsView.swift */; };
+		E8C61F0F6108B065C02C678D /* CatProfileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D372497020C54745D2564A94 /* CatProfileSettingsView.swift */; };
+		E98BE1B178DD73F4BB839E9D /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 447FFB3C2185262A2735327C /* Settings.swift */; };
+		F040F4DA770AFD728C323D3F /* KeyboardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DB40B39C335EEE7793A220 /* KeyboardEngine.swift */; };
+		F750636D2B42C8419F99C63A /* CatDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E012273FF8E9359C7C904CA5 /* CatDetectorTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0F013E5CD0128BEBFDF0954E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F59C13252CFDD314EE692B60 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 87C862789B1470B34688820F;
+			remoteInfo = PawGuard;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		05DB40B39C335EEE7793A220 /* KeyboardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardEngine.swift; sourceTree = "<group>"; };
+		0BA0F1B2F585B825F87BBF11 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		2E0B525D67D1CA17F09B7C00 /* DetectionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionSettingsView.swift; sourceTree = "<group>"; };
+		362DA06D5FC2E55BE14A6FD2 /* CatMessageFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatMessageFormatter.swift; sourceTree = "<group>"; };
+		3DDC455639509B40796F6556 /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
+		447FFB3C2185262A2735327C /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
+		4A53659847F5D5C57B242BC6 /* CatProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatProfile.swift; sourceTree = "<group>"; };
+		4FF3BD1FCA93042C116F0D1C /* KeyboardEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardEvent.swift; sourceTree = "<group>"; };
+		54130B0C11195EB8C6364C3F /* KeyboardEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardEventMonitor.swift; sourceTree = "<group>"; };
+		574E281211D3882C67FDDAAB /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		5BCA12D86647544EDDEE2C44 /* CatProfileStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatProfileStoreTests.swift; sourceTree = "<group>"; };
+		5C47588703DFEE5FB57A4DC3 /* CatDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatDetector.swift; sourceTree = "<group>"; };
+		6F3E02F95AEFF811D7B86A27 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		7103D6BC5F9D5BA0242DE897 /* CountdownRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountdownRing.swift; sourceTree = "<group>"; };
+		7510B18B6101DB919013CACB /* AccessibilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityManager.swift; sourceTree = "<group>"; };
+		85042BB9E2B8ADACA546A52A /* Statistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Statistics.swift; sourceTree = "<group>"; };
+		892691027375DF48F0D2903A /* PawGuard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PawGuard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8969CF4A8D6D4B7B5015976A /* KeyboardPatternTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPatternTests.swift; sourceTree = "<group>"; };
+		89C015984B636A07950A8786 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		8A196454E96C22AC73FB5B39 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8FE2E497503C122130DD7F92 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
+		935322EE0495102242302415 /* DetectionRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionRules.swift; sourceTree = "<group>"; };
+		9C5F97024103EE8231561794 /* PawGuardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PawGuardApp.swift; sourceTree = "<group>"; };
+		9D9F72F76967443756F762F3 /* CatOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatOverlayController.swift; sourceTree = "<group>"; };
+		9FA252ADD99C9C6C98CB1D6D /* PawGuardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PawGuardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AD4A80B959678AEC6D2C5C22 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		AF7863F793FA0BE2C8FE2D5C /* KeyboardGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardGeometry.swift; sourceTree = "<group>"; };
+		B021F202971215B065F81338 /* RollingEventBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RollingEventBuffer.swift; sourceTree = "<group>"; };
+		B0D71C0D7A0EC1B1C22075E0 /* CatDetectedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatDetectedView.swift; sourceTree = "<group>"; };
+		BF66CED9999A0617A3198619 /* CatProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatProfileStore.swift; sourceTree = "<group>"; };
+		D0BA36A71A63C9E38F212321 /* CatAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatAvatarView.swift; sourceTree = "<group>"; };
+		D372497020C54745D2564A94 /* CatProfileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatProfileSettingsView.swift; sourceTree = "<group>"; };
+		DC344EA56B53D025AA796910 /* CatMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatMessageTests.swift; sourceTree = "<group>"; };
+		E012273FF8E9359C7C904CA5 /* CatDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatDetectorTests.swift; sourceTree = "<group>"; };
+		E6C4DAEE536B239905CC971F /* PawAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PawAnimation.swift; sourceTree = "<group>"; };
+		F08F6F94AE8B25622DC95518 /* ProtectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectionManager.swift; sourceTree = "<group>"; };
+		FE2844D721FADF02DA5D6D18 /* CatPhotoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatPhotoManager.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		12A47CB3E85DC31E28692AE0 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				3BA4F6238408B39FDE50B18E /* MenuBar */,
+				5207B962E15F29224788258C /* Onboarding */,
+				2A88085BFFC1BBFC4AA12165 /* Overlay */,
+				F6913EEC8648732EA42C8FD4 /* Settings */,
+				89DE4A8A162017B48469E395 /* Shared */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		2A88085BFFC1BBFC4AA12165 /* Overlay */ = {
+			isa = PBXGroup;
+			children = (
+				B0D71C0D7A0EC1B1C22075E0 /* CatDetectedView.swift */,
+				9D9F72F76967443756F762F3 /* CatOverlayController.swift */,
+				7103D6BC5F9D5BA0242DE897 /* CountdownRing.swift */,
+				E6C4DAEE536B239905CC971F /* PawAnimation.swift */,
+			);
+			path = Overlay;
+			sourceTree = "<group>";
+		};
+		3BA4F6238408B39FDE50B18E /* MenuBar */ = {
+			isa = PBXGroup;
+			children = (
+				89C015984B636A07950A8786 /* MenuBarView.swift */,
+			);
+			path = MenuBar;
+			sourceTree = "<group>";
+		};
+		40F0BE64F48664310D8F39B3 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AD4A80B959678AEC6D2C5C22 /* AppState.swift */,
+				9C5F97024103EE8231561794 /* PawGuardApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		5207B962E15F29224788258C /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				574E281211D3882C67FDDAAB /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		7366AB321B0E0FAC73B90F48 /* PawGuard */ = {
+			isa = PBXGroup;
+			children = (
+				40F0BE64F48664310D8F39B3 /* App */,
+				E564DC30CDBC1729E599B880 /* Cats */,
+				EC408912CEE2A1511794DB08 /* Detection */,
+				7630E0E46DAC39B35C4F0273 /* Keyboard */,
+				9523CBC61A9363BF3BB888BD /* Models */,
+				AFF649457568461C0B0E35CD /* Permissions */,
+				D8A32245ADD40CF721066468 /* Protection */,
+				12A47CB3E85DC31E28692AE0 /* UI */,
+				6F3E02F95AEFF811D7B86A27 /* Assets.xcassets */,
+				8A196454E96C22AC73FB5B39 /* Info.plist */,
+			);
+			path = PawGuard;
+			sourceTree = "<group>";
+		};
+		7630E0E46DAC39B35C4F0273 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				05DB40B39C335EEE7793A220 /* KeyboardEngine.swift */,
+				4FF3BD1FCA93042C116F0D1C /* KeyboardEvent.swift */,
+				54130B0C11195EB8C6364C3F /* KeyboardEventMonitor.swift */,
+				AF7863F793FA0BE2C8FE2D5C /* KeyboardGeometry.swift */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		89DE4A8A162017B48469E395 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D0BA36A71A63C9E38F212321 /* CatAvatarView.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		9523CBC61A9363BF3BB888BD /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				447FFB3C2185262A2735327C /* Settings.swift */,
+				85042BB9E2B8ADACA546A52A /* Statistics.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AD25B23D841EB5AF4005C5AF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				892691027375DF48F0D2903A /* PawGuard.app */,
+				9FA252ADD99C9C6C98CB1D6D /* PawGuardTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AFF649457568461C0B0E35CD /* Permissions */ = {
+			isa = PBXGroup;
+			children = (
+				7510B18B6101DB919013CACB /* AccessibilityManager.swift */,
+			);
+			path = Permissions;
+			sourceTree = "<group>";
+		};
+		C829EA1F287578F325E1E773 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				E012273FF8E9359C7C904CA5 /* CatDetectorTests.swift */,
+				DC344EA56B53D025AA796910 /* CatMessageTests.swift */,
+				5BCA12D86647544EDDEE2C44 /* CatProfileStoreTests.swift */,
+				8969CF4A8D6D4B7B5015976A /* KeyboardPatternTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		D8A32245ADD40CF721066468 /* Protection */ = {
+			isa = PBXGroup;
+			children = (
+				F08F6F94AE8B25622DC95518 /* ProtectionManager.swift */,
+			);
+			path = Protection;
+			sourceTree = "<group>";
+		};
+		E564DC30CDBC1729E599B880 /* Cats */ = {
+			isa = PBXGroup;
+			children = (
+				362DA06D5FC2E55BE14A6FD2 /* CatMessageFormatter.swift */,
+				FE2844D721FADF02DA5D6D18 /* CatPhotoManager.swift */,
+				4A53659847F5D5C57B242BC6 /* CatProfile.swift */,
+				BF66CED9999A0617A3198619 /* CatProfileStore.swift */,
+			);
+			path = Cats;
+			sourceTree = "<group>";
+		};
+		EA5E18712D0DD6AFDEB32757 = {
+			isa = PBXGroup;
+			children = (
+				7366AB321B0E0FAC73B90F48 /* PawGuard */,
+				C829EA1F287578F325E1E773 /* Tests */,
+				AD25B23D841EB5AF4005C5AF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EC408912CEE2A1511794DB08 /* Detection */ = {
+			isa = PBXGroup;
+			children = (
+				5C47588703DFEE5FB57A4DC3 /* CatDetector.swift */,
+				935322EE0495102242302415 /* DetectionRules.swift */,
+				B021F202971215B065F81338 /* RollingEventBuffer.swift */,
+			);
+			path = Detection;
+			sourceTree = "<group>";
+		};
+		F6913EEC8648732EA42C8FD4 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				3DDC455639509B40796F6556 /* AppearanceSettingsView.swift */,
+				D372497020C54745D2564A94 /* CatProfileSettingsView.swift */,
+				2E0B525D67D1CA17F09B7C00 /* DetectionSettingsView.swift */,
+				0BA0F1B2F585B825F87BBF11 /* SettingsView.swift */,
+				8FE2E497503C122130DD7F92 /* StatisticsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		067C74DCD7D97EECF95754CC /* PawGuardTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 95C4C65AF323D256CBCB6FFD /* Build configuration list for PBXNativeTarget "PawGuardTests" */;
+			buildPhases = (
+				668D65F4F9BA3CC8121BB5B7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				30D1677E12D3760974938A6F /* PBXTargetDependency */,
+			);
+			name = PawGuardTests;
+			packageProductDependencies = (
+			);
+			productName = PawGuardTests;
+			productReference = 9FA252ADD99C9C6C98CB1D6D /* PawGuardTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		87C862789B1470B34688820F /* PawGuard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2BB6FD2F3037401CA6C38FDB /* Build configuration list for PBXNativeTarget "PawGuard" */;
+			buildPhases = (
+				8F47C399D0F5CEFF029FEF17 /* Sources */,
+				3191A2FE39C6DEB1E9A955DB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PawGuard;
+			packageProductDependencies = (
+			);
+			productName = PawGuard;
+			productReference = 892691027375DF48F0D2903A /* PawGuard.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F59C13252CFDD314EE692B60 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					067C74DCD7D97EECF95754CC = {
+						ProvisioningStyle = Automatic;
+					};
+					87C862789B1470B34688820F = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 8212FC3B5AE4A5B02D8A3A19 /* Build configuration list for PBXProject "PawGuard" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = EA5E18712D0DD6AFDEB32757;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AD25B23D841EB5AF4005C5AF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				87C862789B1470B34688820F /* PawGuard */,
+				067C74DCD7D97EECF95754CC /* PawGuardTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3191A2FE39C6DEB1E9A955DB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C1E95D8DB4107F99DC3D7F3 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		668D65F4F9BA3CC8121BB5B7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F750636D2B42C8419F99C63A /* CatDetectorTests.swift in Sources */,
+				9E3140903D005A56ED3CDA9B /* CatMessageTests.swift in Sources */,
+				12C006D4C5A8025742E71E23 /* CatProfileStoreTests.swift in Sources */,
+				0C021F4D766830E959EB99EA /* KeyboardPatternTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8F47C399D0F5CEFF029FEF17 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				16C192AF198C5F6FD89C4104 /* AccessibilityManager.swift in Sources */,
+				5A8B48B1DF2805848FECF036 /* AppState.swift in Sources */,
+				D80A90970A63F8091E99CE81 /* AppearanceSettingsView.swift in Sources */,
+				446803A5289E76794E8556CD /* CatAvatarView.swift in Sources */,
+				1725AF91B7850B49EEF7B35B /* CatDetectedView.swift in Sources */,
+				A9F536EA100EF64962BD6121 /* CatDetector.swift in Sources */,
+				C3D0BF7C7D69BAA0E6BB3138 /* CatMessageFormatter.swift in Sources */,
+				3E248F5FAC8AC142F4F0BB44 /* CatOverlayController.swift in Sources */,
+				C666508F7AE2B39B6E15CB80 /* CatPhotoManager.swift in Sources */,
+				2171A36AF13F218740134FA1 /* CatProfile.swift in Sources */,
+				E8C61F0F6108B065C02C678D /* CatProfileSettingsView.swift in Sources */,
+				70A1B8C28F2A91FF8F9D6C63 /* CatProfileStore.swift in Sources */,
+				A68E93592E69138F26A9BDBF /* CountdownRing.swift in Sources */,
+				453C5CA402098BE606C6A6EB /* DetectionRules.swift in Sources */,
+				67BB9C4BE50F9DD7035C0C94 /* DetectionSettingsView.swift in Sources */,
+				F040F4DA770AFD728C323D3F /* KeyboardEngine.swift in Sources */,
+				B6B6F6C58CCE26083CE06E80 /* KeyboardEvent.swift in Sources */,
+				9AAFEB50C7CC4F78BD5F723B /* KeyboardEventMonitor.swift in Sources */,
+				CACC3C2DD3A8B551BA40CCDA /* KeyboardGeometry.swift in Sources */,
+				5901A3FBCEFC158C08E97D45 /* MenuBarView.swift in Sources */,
+				B14506CD35665C663BF3DC8E /* OnboardingView.swift in Sources */,
+				BF9A63EB574B8514AD31D06A /* PawAnimation.swift in Sources */,
+				6FF817497D98BFD41205E10F /* PawGuardApp.swift in Sources */,
+				AE6BA8E0EE92317813DEBEE4 /* ProtectionManager.swift in Sources */,
+				3623737F72E2C2DA6E9661AE /* RollingEventBuffer.swift in Sources */,
+				E98BE1B178DD73F4BB839E9D /* Settings.swift in Sources */,
+				90EE88F0ECA806A765AAD273 /* SettingsView.swift in Sources */,
+				815346937549F34689064F3C /* Statistics.swift in Sources */,
+				BAC1BD6274D6EC83BD2CAB67 /* StatisticsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		30D1677E12D3760974938A6F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 87C862789B1470B34688820F /* PawGuard */;
+			targetProxy = 0F013E5CD0128BEBFDF0954E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		111B70556C5B9526A5CBBBB5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		31E5B9DA2042A1596FF5148D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		9F16BF66405CC76B7197CF5C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = PawGuard/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PawGuard;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pawguard.app;
+				PRODUCT_NAME = PawGuard;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		A6B3EC776A3CAB56305F46E8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = PawGuard/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PawGuard;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSHighResolutionCapable = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pawguard.app;
+				PRODUCT_NAME = PawGuard;
+				SDKROOT = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		B3E142ED9F1306E0DF555034 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pawguard.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PawGuard.app/Contents/MacOS/PawGuard";
+			};
+			name = Debug;
+		};
+		F22DF19D29C2DE4AAAFB2995 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.pawguard.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PawGuard.app/Contents/MacOS/PawGuard";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2BB6FD2F3037401CA6C38FDB /* Build configuration list for PBXNativeTarget "PawGuard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9F16BF66405CC76B7197CF5C /* Debug */,
+				A6B3EC776A3CAB56305F46E8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8212FC3B5AE4A5B02D8A3A19 /* Build configuration list for PBXProject "PawGuard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				111B70556C5B9526A5CBBBB5 /* Debug */,
+				31E5B9DA2042A1596FF5148D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		95C4C65AF323D256CBCB6FFD /* Build configuration list for PBXNativeTarget "PawGuardTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3E142ED9F1306E0DF555034 /* Debug */,
+				F22DF19D29C2DE4AAAFB2995 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F59C13252CFDD314EE692B60 /* Project object */;
+}

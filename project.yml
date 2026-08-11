@@ -1,0 +1,52 @@
+name: PawGuard
+
+options:
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  PawGuard:
+    type: application
+    platform: macOS
+    sources:
+      - path: PawGuard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pawguard.app
+        PRODUCT_NAME: PawGuard
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: PawGuard
+        INFOPLIST_KEY_LSUIElement: true
+        INFOPLIST_KEY_NSHighResolutionCapable: true
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+    info:
+      path: PawGuard/Info.plist
+      properties:
+        CFBundleDisplayName: PawGuard
+        LSUIElement: true
+        NSHighResolutionCapable: true
+        NSHumanReadableCopyright: "© 2026 PawGuard"
+
+  PawGuardTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: PawGuard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pawguard.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PawGuard.app/Contents/MacOS/PawGuard"

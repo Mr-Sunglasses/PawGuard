@@ -1,0 +1,17 @@
+.DS_Store
+.build/
+.build-*/
+dist/
+DerivedData/
+*.xcresult
+*.xccovarchive
+*.xccovreport
+
+PawGuard.xcodeproj/project.xcworkspace/xcuserdata/
+PawGuard.xcodeproj/xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
+*.swp
+*.tmp
+*.log
