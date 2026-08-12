@@ -4,101 +4,93 @@ import Foundation
 import ServiceManagement
 import SwiftUI
 
+/// Composes the app's stores and the two objects that do the real work:
+/// `ProtectionCoordinator` for detection and locking, `AccessibilityWatcher`
+/// for permission and monitor lifecycle. Everything here is presentation glue.
 @MainActor
 final class AppState: ObservableObject {
     let settingsStore: SettingsStore
     let profileStore: CatProfileStore
     let statisticsStore: StatisticsStore
+    let calibrationStore: CalibrationStore
     let photoManager: CatPhotoManager
-    let accessibilityManager: AccessibilityManager
+    let protection: ProtectionCoordinator
+    let accessibility: AccessibilityWatcher
 
-    @Published private(set) var protectionState: ProtectionState = .monitoring
-    @Published private(set) var accessibilityEnabled = false
-    @Published private(set) var keyboardMonitoringAvailable = false
-    @Published private(set) var isResettingAccessibility = false
-    @Published private(set) var accessibilityResetMessage: String?
-    @Published private(set) var currentDetection: DetectionResult = .empty
-    @Published private(set) var overlayRemaining: TimeInterval = 0
-    @Published private(set) var isTestOverlayVisible = false
-
-    private let keyboardEngine: KeyboardEngine
-    private let keyboardMonitor: KeyboardEventMonitor
-    private let overlayController: CatOverlayController
-    private var timer: Timer?
-    private var protectionStartedAt: Date?
-    private var pendingBlockedEvents = 0
-    private var testOverlayEnd: Date?
-    private var lastAccessibilityState = false
     private var storeCancellables = Set<AnyCancellable>()
 
     init() {
         let settingsStore = SettingsStore()
         let profileStore = CatProfileStore()
         let statisticsStore = StatisticsStore()
+        let calibrationStore = CalibrationStore()
         self.settingsStore = settingsStore
         self.profileStore = profileStore
         self.statisticsStore = statisticsStore
+        self.calibrationStore = calibrationStore
         photoManager = CatPhotoManager()
-        accessibilityManager = AccessibilityManager()
 
-        let settings = settingsStore.settings
-        let engine = KeyboardEngine(
-            threshold: settings.detectionThreshold,
-            extendOnActivity: settings.extendOnActivity,
-            lockDuration: settings.lockDuration
+        let protection = ProtectionCoordinator(
+            settingsStore: settingsStore,
+            statisticsStore: statisticsStore,
+            calibrationStore: calibrationStore,
+            profileProvider: { [weak profileStore] in profileStore?.activeProfile }
         )
-        keyboardEngine = engine
-        keyboardMonitor = KeyboardEventMonitor(
-            handler: { [weak engine] sample in
-                engine?.process(sample) ?? true
-            },
-            interruptionHandler: { [weak engine] in
-                engine?.resetDetectionAfterMonitorInterruption()
-            }
-        )
-        overlayController = CatOverlayController()
-
-        settingsStore.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &storeCancellables)
-        profileStore.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &storeCancellables)
-        statisticsStore.objectWillChange
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &storeCancellables)
-
-        engine.onCatDetected = { [weak self] result in
-            Task { @MainActor [weak self] in
-                self?.handleDetection(result)
-            }
-        }
-        engine.onDetectionUpdated = { [weak self] result in
-            Task { @MainActor [weak self] in
-                self?.currentDetection = result
-            }
-        }
-        engine.onBlockedActivity = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.pendingBlockedEvents += 1
-            }
-        }
-        engine.onEmergencyUnlock = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.completeManualUnlock()
-            }
+        self.protection = protection
+        accessibility = AccessibilityWatcher(monitor: protection.monitor)
+        accessibility.onMonitoringLost = { [weak protection] in
+            protection?.teardownForPermissionLoss()
         }
 
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.tick() }
+        for publisher in [
+            settingsStore.objectWillChange.eraseToAnyPublisher(),
+            profileStore.objectWillChange.eraseToAnyPublisher(),
+            statisticsStore.objectWillChange.eraseToAnyPublisher(),
+            calibrationStore.objectWillChange.eraseToAnyPublisher(),
+            protection.objectWillChange.eraseToAnyPublisher(),
+            accessibility.objectWillChange.eraseToAnyPublisher(),
+        ] {
+            publisher
+                .sink { [weak self] _ in self?.objectWillChange.send() }
+                .store(in: &storeCancellables)
         }
-        refreshAccessibility()
     }
 
-    deinit {
-        timer?.invalidate()
-        keyboardMonitor.stop()
+    var accessibilityManager: AccessibilityManager { accessibility.manager }
+
+    // MARK: - Protection
+
+    var protectionState: ProtectionState { protection.protectionState }
+    var currentDetection: DetectionResult { protection.currentDetection }
+    var overlayRemaining: TimeInterval { protection.overlayRemaining }
+    var isTestOverlayVisible: Bool { protection.isTestOverlayVisible }
+    var isLocked: Bool { protection.isLocked }
+    var undoableKeystrokes: Int { protection.undoableKeystrokes }
+    var detectionContext: DetectionContext { protection.context }
+
+    func testCatMode() { protection.testCatMode() }
+    func unlockNow() { protection.unlockNow() }
+    func dismissTestOverlay() { protection.dismissTestOverlay() }
+    func undoCatTyping() { protection.undoCatTyping() }
+
+    // MARK: - Permissions
+
+    var accessibilityEnabled: Bool { accessibility.isTrusted }
+    var keyboardMonitoringAvailable: Bool { accessibility.monitoringAvailable }
+    var isResettingAccessibility: Bool { accessibility.isResetting }
+    var accessibilityResetMessage: String? { accessibility.resetMessage }
+    var accessibilityRepairNeeded: Bool { accessibility.repairNeeded }
+
+    func refreshAccessibility() { accessibility.refresh() }
+    func requestAccessibility() { accessibility.requestAccess() }
+
+    func resetAccessibilityPermission() {
+        accessibility.resetPermission { [weak self] in
+            self?.protection.teardownForPermissionLoss()
+        }
     }
+
+    // MARK: - Status
 
     var activeCat: CatProfile? { profileStore.activeProfile }
 
@@ -106,71 +98,43 @@ final class AppState: ObservableObject {
         !settingsStore.settings.hasCompletedOnboarding || activeCat == nil
     }
 
-    var isLocked: Bool { protectionState.isLocked }
+    /// True while macOS secure input is on. No event tap receives key events in
+    /// that state, so claiming to be watching would be a lie.
+    var isSecureInputActive: Bool { protection.context.isSecureInputEnabled }
+
+    var isProtectionPaused: Bool {
+        protection.context.isProtectionSuppressed(
+            disabledBundleIdentifiers: settingsStore.settings.disabledBundleIdentifiers,
+            pauseInFullscreen: settingsStore.settings.pauseInFullscreen
+        )
+    }
 
     var statusTitle: String {
         if !keyboardMonitoringAvailable { return "Protection unavailable" }
         if isLocked { return "Protected" }
+        if isSecureInputActive { return "Paused for secure input" }
+        if isProtectionPaused { return "Paused for this app" }
         return "Watching for tiny paws"
     }
 
     var statusSubtitle: String {
         if !accessibilityEnabled { return "Accessibility permission is required to enable protection." }
-        if !keyboardMonitoringAvailable { return "PawGuard cannot start its keyboard monitor. Use a signed build or repair permission." }
+        if !keyboardMonitoringAvailable {
+            return "PawGuard cannot start its keyboard monitor. Use a signed build or repair permission."
+        }
         if isLocked { return "Keyboard input is temporarily paused." }
+        if isSecureInputActive {
+            return "A password field has secure input turned on, so no app can observe the keyboard."
+        }
+        if isProtectionPaused {
+            let name = protection.context.frontmostApplicationName ?? "this app"
+            return "PawGuard is standing down while \(name) is frontmost."
+        }
         if let activeCat { return "Watching for \(activeCat.displayName)'s paws" }
         return "Create a cat profile to personalize PawGuard"
     }
 
-    var accessibilityRepairNeeded: Bool {
-        !accessibilityEnabled || !keyboardMonitoringAvailable
-    }
-
-    func refreshAccessibility() {
-        let trusted = accessibilityManager.isTrusted
-        lastAccessibilityState = trusted
-        accessibilityEnabled = trusted
-        if trusted && !keyboardMonitor.isRunning {
-            keyboardMonitoringAvailable = keyboardMonitor.start()
-        } else if !trusted {
-            keyboardMonitoringAvailable = false
-            keyboardMonitor.stop()
-            keyboardEngine.resetDetectionAfterMonitorInterruption()
-        }
-    }
-
-    func requestAccessibility() {
-        accessibilityManager.requestAccess()
-        refreshAccessibility()
-    }
-
-    func resetAccessibilityPermission() {
-        guard !isResettingAccessibility else { return }
-        isResettingAccessibility = true
-        accessibilityResetMessage = nil
-        keyboardMonitor.stop()
-        keyboardMonitoringAvailable = false
-        accessibilityEnabled = false
-        lastAccessibilityState = false
-
-        if keyboardEngine.state.isLocked {
-            completeManualUnlock()
-        }
-        keyboardEngine.reset()
-        protectionState = .monitoring
-        overlayController.dismiss()
-
-        accessibilityManager.resetAccess { [weak self] succeeded in
-            guard let self else { return }
-            self.isResettingAccessibility = false
-            self.accessibilityResetMessage =
-                succeeded
-                ? "Accessibility permission reset. Enable PawGuard again in System Settings."
-                : "PawGuard could not reset the permission. You can manage it in System Settings."
-            self.refreshAccessibility()
-            self.accessibilityManager.openSettings()
-        }
-    }
+    // MARK: - Profiles
 
     func completeOnboarding() {
         settingsStore.settings.hasCompletedOnboarding = true
@@ -193,7 +157,9 @@ final class AppState: ObservableObject {
             }
             return photoManager.importPhotos(from: [url], for: profileID).first
         }
-        guard var profile = profileStore.profiles.first(where: { $0.id == profileID }), !imported.isEmpty else { return }
+        guard var profile = profileStore.profiles.first(where: { $0.id == profileID }), !imported.isEmpty else {
+            return
+        }
         profile.photoPaths.append(contentsOf: imported.map(\.avatarPath))
         profileStore.update(profile)
     }
@@ -216,31 +182,15 @@ final class AppState: ObservableObject {
         profileStore.updateName(name, for: profileID)
     }
 
-    func testCatMode() {
-        guard !isLocked else { return }
-        isTestOverlayVisible = true
-        testOverlayEnd = Date().addingTimeInterval(8)
-        overlayRemaining = 8
-        overlayController.show(
-            profile: activeCat,
-            remaining: overlayRemaining,
-            accent: settingsStore.settings.accentTheme,
-            total: 8,
-            isTest: true,
-            onUnlock: { [weak self] in self?.dismissTestOverlay() }
-        )
+    // MARK: - App rules
+
+    func disableProtection(forBundleIdentifier identifier: String) {
+        guard !settingsStore.settings.disabledBundleIdentifiers.contains(identifier) else { return }
+        settingsStore.settings.disabledBundleIdentifiers.append(identifier)
     }
 
-    func unlockNow() {
-        guard isLocked else { return }
-        keyboardEngine.unlock()
-        completeManualUnlock()
-    }
-
-    func dismissTestOverlay() {
-        testOverlayEnd = nil
-        isTestOverlayVisible = false
-        overlayController.dismiss()
+    func enableProtection(forBundleIdentifier identifier: String) {
+        settingsStore.settings.disabledBundleIdentifiers.removeAll { $0 == identifier }
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -257,118 +207,6 @@ final class AppState: ObservableObject {
             }
         } else {
             settingsStore.settings.launchAtLogin = false
-        }
-    }
-
-    private func handleDetection(_ result: DetectionResult) {
-        currentDetection = result
-        protectionStartedAt = protectionStartedAt ?? .now
-        statisticsStore.recordDetection()
-        if settingsStore.settings.showProtectionOverlay {
-            showProtectionOverlay()
-        }
-        if settingsStore.settings.playProtectionSound {
-            NSSound(named: NSSound.Name("Pop"))?.play()
-        }
-    }
-
-    private func showProtectionOverlay() {
-        guard case .locked(let until) = keyboardEngine.state else { return }
-        let remaining = max(0, until.timeIntervalSinceNow)
-        overlayRemaining = remaining
-        overlayController.show(
-            profile: overlayProfile,
-            remaining: remaining,
-            accent: settingsStore.settings.accentTheme,
-            total: settingsStore.settings.lockDuration,
-            isTest: false,
-            onUnlock: { [weak self] in self?.unlockNow() }
-        )
-    }
-
-    private func completeManualUnlock() {
-        if let started = protectionStartedAt {
-            statisticsStore.recordProtectionDuration(Date().timeIntervalSince(started))
-        }
-        protectionStartedAt = nil
-        protectionState = keyboardEngine.state
-        overlayController.dismiss()
-        overlayRemaining = 0
-    }
-
-    private var overlayProfile: CatProfile? {
-        guard let profile = activeCat else { return nil }
-        guard settingsStore.settings.showCatPhoto else {
-            var withoutPhoto = profile
-            withoutPhoto.photoPaths = []
-            withoutPhoto.selectedAvatarIndex = 0
-            return withoutPhoto
-        }
-        return profile
-    }
-
-    private func tick() {
-        refreshAccessibilityIfNeeded()
-        keyboardEngine.update(
-            threshold: settingsStore.settings.detectionThreshold,
-            extendOnActivity: settingsStore.settings.extendOnActivity,
-            lockDuration: settingsStore.settings.lockDuration
-        )
-        _ = keyboardEngine.evaluateHeldKeys(at: ProcessInfo.processInfo.systemUptime)
-
-        if pendingBlockedEvents > 0 {
-            statisticsStore.recordBlockedEvents(pendingBlockedEvents)
-            pendingBlockedEvents = 0
-        }
-
-        if let testOverlayEnd {
-            let remaining = testOverlayEnd.timeIntervalSinceNow
-            if remaining <= 0 {
-                dismissTestOverlay()
-            } else {
-                overlayRemaining = remaining
-                overlayController.update(remaining: remaining)
-            }
-        }
-
-        let wasLocked = protectionState.isLocked
-        let nextState = keyboardEngine.advance()
-        protectionState = nextState
-        if !wasLocked && nextState.isLocked {
-            protectionStartedAt = protectionStartedAt ?? .now
-            if settingsStore.settings.showProtectionOverlay { showProtectionOverlay() }
-        }
-
-        if case .locked(let until) = nextState {
-            overlayRemaining = max(0, until.timeIntervalSinceNow)
-            if settingsStore.settings.showProtectionOverlay {
-                overlayController.update(remaining: overlayRemaining)
-            } else {
-                overlayController.dismiss()
-            }
-        } else if wasLocked {
-            if let started = protectionStartedAt {
-                statisticsStore.recordProtectionDuration(Date().timeIntervalSince(started))
-            }
-            protectionStartedAt = nil
-            overlayController.dismiss()
-            overlayRemaining = 0
-        }
-
-    }
-
-    private func refreshAccessibilityIfNeeded() {
-        let trusted = accessibilityManager.isTrusted
-        if trusted != lastAccessibilityState || (trusted && !keyboardMonitor.isRunning) {
-            refreshAccessibility()
-        }
-        if !trusted && keyboardMonitor.isRunning {
-            keyboardMonitor.stop()
-            keyboardMonitoringAvailable = false
-            if keyboardEngine.state.isLocked {
-                keyboardEngine.unlock()
-                completeManualUnlock()
-            }
         }
     }
 }

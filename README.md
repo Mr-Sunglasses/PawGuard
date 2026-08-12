@@ -7,8 +7,12 @@ Everything runs locally. PawGuard observes only event timing, virtual key codes,
 ## Highlights
 
 - Native SwiftUI and AppKit interface for macOS 14+
-- Global keyboard monitoring with a Core Graphics event tap
-- Scored detection for overlapping keys, spatial clusters, rapid bursts, and long holds
+- Global keyboard monitoring with a Core Graphics event tap on its own thread
+- Scored detection for overlapping keys, cluster density, impact synchrony, rhythm, and long holds
+- A confirmation window that withholds borderline input and replays it if it turns out to be you
+- Undo for whatever the cat typed before protection engaged
+- Learns from your unlocks: nothing leaves the Mac
+- Stands down for full-screen games, apps you exclude, and secure input
 - Protections against fast human typing, shortcuts, key rollover, and common gaming holds
 - Personalized cat profile, local photos, theme, sensitivity, and lock duration
 - Multi-display, draggable protection overlay with mouse unlock and countdown
@@ -40,7 +44,7 @@ make run
 The helper finds the first available Apple Development identity, regenerates the Xcode project, builds PawGuard, signs the finished app, verifies the signature, and launches it from:
 
 ```text
-.build-signed/Build/Products/Debug/PawGuard.app
+.build/signed/Build/Products/Debug/PawGuard.app
 ```
 
 If more than one development certificate is installed, select one explicitly:
@@ -65,7 +69,7 @@ Always use the same signing certificate and the unchanged `com.pawguard.app` bun
 
 If PawGuard is enabled in System Settings but protection remains unavailable:
 
-1. Confirm you launched `.build-signed/Build/Products/Debug/PawGuard.app`, not an unsigned build from another directory.
+1. Confirm you launched `.build/signed/Build/Products/Debug/PawGuard.app`, not an unsigned build from another directory.
 2. Open **PawGuard Settings → General → Accessibility**.
 3. Choose **Reset Accessibility Permission**.
 4. Re-enable PawGuard in the System Settings page that opens.

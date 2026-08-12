@@ -1,8 +1,10 @@
 import AppKit
 import SwiftUI
 
+/// The overlay must never take key focus: it appears precisely when a cat is
+/// on the keyboard, and stealing focus would redirect that input at PawGuard.
 private final class PawOverlayPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
 
@@ -16,7 +18,9 @@ final class CatOverlayController {
     private var accent: AccentTheme = .automatic
     private var isTest = false
     private var message = "Tiny paws detected."
+    private var undoableKeystrokes = 0
     private var unlockAction: (() -> Void)?
+    private var undoAction: (() -> Void)?
 
     func show(
         profile: CatProfile?,
@@ -24,14 +28,18 @@ final class CatOverlayController {
         accent: AccentTheme,
         total: TimeInterval,
         isTest: Bool,
-        onUnlock: @escaping () -> Void
+        undoableKeystrokes: Int,
+        onUnlock: @escaping () -> Void,
+        onUndo: @escaping () -> Void
     ) {
         self.profile = profile
         self.remaining = remaining
         self.total = total
         self.accent = accent
         self.isTest = isTest
+        self.undoableKeystrokes = undoableKeystrokes
         self.unlockAction = onUnlock
+        self.undoAction = onUndo
         if !isTest && message == "Tiny paws detected." {
             message = CatMessage.detected(catName: profile?.displayName ?? "your cat")
         } else if isTest {
@@ -49,12 +57,20 @@ final class CatOverlayController {
         updateRootView()
     }
 
+    func updateUndoAvailability(_ available: Bool) {
+        undoableKeystrokes = available ? undoableKeystrokes : 0
+        guard panel != nil else { return }
+        updateRootView()
+    }
+
     func dismiss() {
         panel?.orderOut(nil)
         panel = nil
         hostingView = nil
         message = "Tiny paws detected."
+        undoableKeystrokes = 0
         unlockAction = nil
+        undoAction = nil
     }
 
     private func createPanel() {
@@ -71,7 +87,9 @@ final class CatOverlayController {
         panel.backgroundColor = .clear
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isMovableByWindowBackground = true
+        // A cat on the trackpad would otherwise drag the overlay off screen.
+        panel.isMovableByWindowBackground = false
+        panel.ignoresMouseEvents = false
         self.panel = panel
     }
 
@@ -84,7 +102,9 @@ final class CatOverlayController {
             total: total,
             accentTheme: accent,
             isTest: isTest,
-            onUnlock: { [weak self] in self?.unlockAction?() }
+            undoableKeystrokes: undoableKeystrokes,
+            onUnlock: { [weak self] in self?.unlockAction?() },
+            onUndo: { [weak self] in self?.undoAction?() }
         )
         if let hostingView {
             hostingView.rootView = view

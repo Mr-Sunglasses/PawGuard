@@ -1,0 +1,14 @@
+{"flags": 0, "key": 13, "kind": "down", "repeated": false, "time": 0.0}
+{"flags": 0, "key": 12, "kind": "down", "repeated": false, "time": 0.01159}
+{"flags": 0, "key": 14, "kind": "down", "repeated": false, "time": 0.02611}
+{"flags": 0, "key": 1, "kind": "down", "repeated": false, "time": 0.04078}
+{"flags": 0, "key": 40, "kind": "down", "repeated": false, "time": 0.11}
+{"flags": 0, "key": 37, "kind": "down", "repeated": false, "time": 0.11417}
+{"flags": 0, "key": 38, "kind": "down", "repeated": false, "time": 0.12417}
+{"flags": 0, "key": 13, "kind": "up", "repeated": false, "time": 7.0}
+{"flags": 0, "key": 12, "kind": "up", "repeated": false, "time": 7.012}
+{"flags": 0, "key": 14, "kind": "up", "repeated": false, "time": 7.024}
+{"flags": 0, "key": 1, "kind": "up", "repeated": false, "time": 7.036}
+{"flags": 0, "key": 40, "kind": "up", "repeated": false, "time": 7.11}
+{"flags": 0, "key": 37, "kind": "up", "repeated": false, "time": 7.122}
+{"flags": 0, "key": 38, "kind": "up", "repeated": false, "time": 7.134}

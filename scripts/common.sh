@@ -47,9 +47,9 @@ pawguard_configuration_name() {
 
 pawguard_derived_data_path() {
     if [ "${1:-unsigned}" = "signed" ]; then
-        printf '%s/.build-signed\n' "$PAWGUARD_PROJECT_ROOT"
+        printf '%s/.build/signed\n' "$PAWGUARD_PROJECT_ROOT"
     else
-        printf '%s/.build-dev\n' "$PAWGUARD_PROJECT_ROOT"
+        printf '%s/.build/dev\n' "$PAWGUARD_PROJECT_ROOT"
     fi
 }
 

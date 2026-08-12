@@ -8,6 +8,10 @@ enum DetectionSignal: String, Hashable, Codable {
     case rapidCluster
     case multiKeyHold
     case excessiveRepeat
+    case impactSynchrony
+    case multiCluster
+    case improbableCombination
+    case nonHumanRate
 }
 
 enum DetectionConfidence: String, Codable {
@@ -25,6 +29,10 @@ struct DetectionResult {
     let rapidClusterKeyCount: Int
     let heldKeyCount: Int
     let hasPhysicalCluster: Bool
+    /// True when the evidence is beyond anything a human produces, so
+    /// protection engages without waiting for the confirmation window.
+    let isImmediate: Bool
+    let features: DetectionFeatures
 
     static let empty = DetectionResult(
         score: 0,
@@ -34,22 +42,36 @@ struct DetectionResult {
         burstKeyCount: 0,
         rapidClusterKeyCount: 0,
         heldKeyCount: 0,
-        hasPhysicalCluster: false
+        hasPhysicalCluster: false,
+        isImmediate: false,
+        features: DetectionFeatures()
     )
 }
 
+/// Scores keyboard activity against patterns a paw produces and fingers do not.
+///
+/// Not thread-safe on its own; `KeyboardEngine` owns the serialization.
 final class CatDetector {
     private var eventBuffer = RollingEventBuffer()
     private var heldKeys: [CGKeyCode: TimeInterval] = [:]
     private var latestModifiers: CGEventFlags = []
     private(set) var threshold: Int
+    private(set) var weights: DetectionWeights
 
-    init(threshold: Int = DetectionRules.defaultThreshold) {
+    /// Key sets the user has repeatedly told us are not a cat.
+    var allowedKeySets: [Set<CGKeyCode>] = []
+
+    init(threshold: Int = DetectionRules.defaultThreshold, weights: DetectionWeights = .default) {
         self.threshold = threshold
+        self.weights = weights
     }
 
     func updateThreshold(_ threshold: Int) {
         self.threshold = max(30, min(100, threshold))
+    }
+
+    func updateWeights(_ weights: DetectionWeights) {
+        self.weights = weights
     }
 
     func reset() {
@@ -57,6 +79,8 @@ final class CatDetector {
         heldKeys.removeAll(keepingCapacity: true)
         latestModifiers = []
     }
+
+    var currentHeldKeys: Set<CGKeyCode> { Set(heldKeys.keys) }
 
     func process(_ sample: KeyboardEventSample) -> DetectionResult {
         latestModifiers = sample.modifiers
@@ -79,207 +103,187 @@ final class CatDetector {
 
     /// Re-evaluates held keys even when a paw is resting still and macOS has
     /// not emitted an autorepeat event. The timestamp uses system uptime, the
-    /// same monotonic clock represented by CGEvent timestamps.
+    /// same monotonic clock `KeyboardEventMonitor` converts event stamps into.
     func evaluate(at timestamp: TimeInterval) -> DetectionResult {
         eventBuffer.trim(through: timestamp)
+        dropStaleHolds(at: timestamp)
         return currentResult(at: timestamp)
     }
 
-    private func currentResult(at timestamp: TimeInterval) -> DetectionResult {
-        let recentSamples = eventBuffer.samples.filter {
-            timestamp >= $0.timestamp && timestamp - $0.timestamp <= DetectionRules.generalWindow
+    /// Replaces the inferred held-key set with the hardware's own view.
+    ///
+    /// `CGEventSource.keyState` reports what is physically down, which fixes
+    /// key-ups lost to a disabled tap and catches a paw that was already
+    /// resting on the keyboard before monitoring started.
+    func reconcileHeldKeys(with physicalKeys: Set<CGKeyCode>, at timestamp: TimeInterval) {
+        for key in heldKeys.keys where !physicalKeys.contains(key) {
+            heldKeys.removeValue(forKey: key)
         }
-        let burstKeyDowns = eventBuffer.samples.filter {
-            $0.type == .keyDown && !KeyboardGeometry.isModifier($0.keyCode) && !$0.isRepeat
-                && timestamp >= $0.timestamp && timestamp - $0.timestamp <= DetectionRules.fastBurstWindow
-        }
-        // Simultaneous means physically overlapping presses. Counting recent key-downs
-        // after their key-up would mistake fast human typing for a paw resting on keys.
-        let simultaneousKeys = Set(heldKeys.keys)
-        let burstKeys = Set(burstKeyDowns.map(\.keyCode))
-        let held = Set(heldKeys.keys)
-        let heldHasCluster = KeyboardGeometry.isTightCluster(simultaneousKeys)
-        let burstHasCluster = KeyboardGeometry.isTightCluster(burstKeys)
-        let rapidClusterCount = maximumRapidClusterCount(in: recentSamples)
-        let simultaneousCount = simultaneousKeys.count
-        let burstCount = burstKeys.count
-        let heldCount = held.count
-        let longHeldCount = heldKeys.values.filter { timestamp - $0 >= DetectionRules.holdThreshold }.count
-        let extendedHeldCount = heldKeys.values.filter { timestamp - $0 >= DetectionRules.extendedHoldThreshold }.count
-        let repeatCount = recentSamples.filter {
-            $0.type == .keyDown && $0.isRepeat && timestamp - $0.timestamp <= DetectionRules.fastBurstWindow
-        }.count
-
-        var score = 0
-        var signals = Set<DetectionSignal>()
-
-        switch simultaneousCount {
-        case 6...:
-            score += 100
-            signals.insert(.simultaneousKeys)
-        case 5:
-            score += 58
-            signals.insert(.simultaneousKeys)
-        case 4:
-            score += 32
-            signals.insert(.simultaneousKeys)
-        case 3:
-            score += 14
-            signals.insert(.simultaneousKeys)
-        case 2:
-            score += 4
-        default:
-            break
-        }
-
-        switch burstCount {
-        case 12...:
-            score += 35
-            signals.insert(.fastBurst)
-        case 9...:
-            score += 22
-            signals.insert(.fastBurst)
-        case 7...:
-            score += 12
-            signals.insert(.fastBurst)
-        case 5...:
-            score += 5
-            signals.insert(.fastBurst)
-        default:
-            break
-        }
-
-        if heldHasCluster {
-            switch simultaneousCount {
-            case 5...:
-                score += 32
-                signals.insert(.physicalCluster)
-            case 4:
-                score += 22
-                signals.insert(.physicalCluster)
-            case 3:
-                score += 10
-                signals.insert(.physicalCluster)
-            default:
-                break
+        for key in physicalKeys where !KeyboardGeometry.isModifier(key) {
+            if heldKeys[key] == nil {
+                heldKeys[key] = timestamp
             }
         }
+    }
 
-        // A paw often lands as a compact three- or four-key impact. Keep that
-        // evidence for the full rolling window so a quiet hold can mature into
-        // a detection even if macOS sends no autorepeat event.
-        switch rapidClusterCount {
-        case 5...:
-            score += 30
+    /// Drops keys whose key-up never arrived. Without this a lost event pins a
+    /// key down forever and every later evaluation sees a phantom long hold.
+    private func dropStaleHolds(at timestamp: TimeInterval) {
+        for (key, start) in heldKeys where timestamp - start > DetectionRules.staleHoldTimeout {
+            heldKeys.removeValue(forKey: key)
+        }
+    }
+
+    private func currentResult(at timestamp: TimeInterval) -> DetectionResult {
+        let features = DetectionFeatures.extract(
+            heldKeys: heldKeys,
+            samples: eventBuffer.samples,
+            modifiers: latestModifiers,
+            at: timestamp
+        )
+        return score(features)
+    }
+
+    /// Converts features into a 0-100 score. Every term is a smooth ramp, so a
+    /// single extra key shifts the score by a few points rather than tens.
+    func score(_ features: DetectionFeatures) -> DetectionResult {
+        var score = 0.0
+        var signals = Set<DetectionSignal>()
+
+        let simultaneous = Double(features.simultaneousCount)
+        let overlap = weights.overlap * detectionRamp(simultaneous, from: 1, to: 5)
+        if overlap > 0 {
+            score += overlap
+            if features.simultaneousCount >= 3 { signals.insert(.simultaneousKeys) }
+        }
+        score += weights.extremeOverlap * detectionRamp(simultaneous, from: 5, to: 7)
+
+        let clusterScore =
+            weights.cluster * features.clusterCompactness
+            * detectionRamp(Double(features.largestClusterSize), from: 2, to: 5)
+        if clusterScore > 0 {
+            score += clusterScore
+            signals.insert(.physicalCluster)
+        }
+
+        let rapidCluster = weights.rapidCluster * detectionRamp(Double(features.rapidClusterCount), from: 2, to: 5)
+        if rapidCluster > 0 {
+            score += rapidCluster
             signals.insert(.rapidCluster)
             signals.insert(.physicalCluster)
-        case 4:
-            score += 20
-            signals.insert(.rapidCluster)
-            signals.insert(.physicalCluster)
-        case 3:
-            score += 16
-            signals.insert(.rapidCluster)
-            signals.insert(.physicalCluster)
-        default:
-            break
         }
 
-        // A paw can roll across neighboring keys instead of pressing all of
-        // them at precisely the same instant. Require both a clustered burst
-        // and real overlap so fast sequential human typing is not enough.
-        let rollingCluster = burstHasCluster && burstCount >= 5 && simultaneousCount >= 2
-        if rollingCluster {
-            score += 30
+        let synchrony = weights.synchrony * detectionRamp(Double(features.synchronyCount), from: 2, to: 5)
+        if synchrony > 0 {
+            score += synchrony
+            signals.insert(.impactSynchrony)
+        }
+
+        let holdScore =
+            weights.multiKeyHold
+            * (0.55 * detectionRamp(Double(features.longHeldCount), from: 1, to: 3)
+                + 0.45 * detectionRamp(Double(features.extendedHeldCount), from: 1, to: 3))
+        if holdScore > 0 {
+            score += holdScore
+            signals.insert(.multiKeyHold)
+        }
+
+        // Two compact groups far apart is a cat lying across the keyboard, a
+        // shape a single-cluster test cannot see.
+        if features.separateClusterCount >= 2 && features.simultaneousCount >= 4 {
+            score += weights.multiCluster
+            signals.insert(.multiCluster)
             signals.insert(.physicalCluster)
         }
 
-        if longHeldCount >= 4 {
-            score += 45
-            signals.insert(.multiKeyHold)
-        } else if longHeldCount >= 3 {
-            score += 30
-            signals.insert(.multiKeyHold)
-        } else if longHeldCount >= 2 {
-            score += 12
-            signals.insert(.multiKeyHold)
+        if features.improbableCombination {
+            score += weights.improbableCombination
+            signals.insert(.improbableCombination)
         }
-        if extendedHeldCount >= 3 {
-            score += 30
-            signals.insert(.multiKeyHold)
+
+        let burst = weights.burst * detectionRamp(Double(features.burstCount), from: 6, to: 14)
+        if burst > 0 {
+            score += burst
+            signals.insert(.fastBurst)
         }
-        if repeatCount >= 3 && heldCount >= 2 {
-            score += 15
+
+        // Speed and rhythm only count as evidence alongside real overlap.
+        // Sequential speed alone is how fast humans type.
+        let overlapGate = detectionRamp(simultaneous, from: 1, to: 3)
+        let rate =
+            weights.keyRate
+            * detectionRamp(
+                features.keyRate,
+                from: DetectionRules.humanKeyRateFloor,
+                to: DetectionRules.humanKeyRateCeiling
+            ) * overlapGate
+        if rate > 0 {
+            score += rate
+            signals.insert(.nonHumanRate)
+        }
+
+        if features.medianInterval.isFinite {
+            score += weights.rhythm * (1 - detectionRamp(features.medianInterval, from: 0.02, to: 0.07)) * overlapGate
+        }
+
+        if features.repeatCount >= 3 && features.simultaneousCount >= 2 {
+            score += weights.excessiveRepeat
             signals.insert(.excessiveRepeat)
         }
 
-        let looksSequential = simultaneousCount <= 1 && !heldHasCluster && heldCount <= 1
+        // Human-pattern damping.
+        let looksSequential = features.simultaneousCount <= 1 && features.largestClusterSize < 3
         if looksSequential {
-            score -= 20
+            score *= weights.sequentialDamping
+        }
+        if features.intentionalHold || matchesAllowedKeySet(features.heldKeys) {
+            score *= weights.intentionalHoldDamping
+        }
+        let looksLikeShortcut =
+            features.simultaneousCount <= 2
+            || (features.clusterCompactness < 0.4 && features.rapidClusterCount < 3)
+        if features.hasShortcutModifier && looksLikeShortcut {
+            score *= weights.shortcutDamping
+        }
+        if features.handAlternationRate >= 0.5 && features.simultaneousCount <= 2 {
+            score *= weights.alternationDamping
         }
 
-        let intentionalHold = KeyboardGeometry.isLikelyIntentionalHold(held)
-        if intentionalHold {
-            score -= 55
+        var finalScore = Int(max(0, min(100, score)).rounded())
+
+        // A known human control cluster stays non-triggering even when key
+        // repeat makes it look like a long hold. Unrelated keys in the rolling
+        // burst remove this exemption.
+        if (features.intentionalHold || matchesAllowedKeySet(features.heldKeys)) && features.burstCount <= 4 {
+            finalScore = min(finalScore, max(0, threshold - 1))
         }
 
-        let shortcutModifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate]
-        let hasShortcutModifier = !latestModifiers.intersection(shortcutModifiers).isEmpty
-        let looksLikeShortcut = simultaneousCount <= 2 || (!heldHasCluster && rapidClusterCount < 3)
-        if hasShortcutModifier && looksLikeShortcut {
-            score -= 30
-        }
-        score = max(0, score)
-
-        // A stable, known human control cluster stays non-triggering even when
-        // key repeat makes it look like a long hold. Unrelated keys in the
-        // rolling burst remove this exemption.
-        if intentionalHold && burstCount <= 4 {
-            score = min(score, max(0, threshold - 1))
-        }
-
-        let hasCluster = heldHasCluster || rollingCluster || rapidClusterCount >= 3
-        let immediate = simultaneousCount >= 6 || (simultaneousCount >= 5 && heldHasCluster && !intentionalHold)
+        let isImmediate = finalScore >= DetectionRules.immediateScore
         let confidence: DetectionConfidence
-        if immediate || score >= threshold {
+        if finalScore >= threshold {
             confidence = .cat
-        } else if score >= max(25, threshold / 2) {
+        } else if finalScore >= max(25, threshold / 2) {
             confidence = .suspicious
         } else {
             confidence = .none
         }
 
         return DetectionResult(
-            score: score,
+            score: finalScore,
             signals: signals,
             confidence: confidence,
-            simultaneousKeyCount: simultaneousCount,
-            burstKeyCount: burstCount,
-            rapidClusterKeyCount: rapidClusterCount,
-            heldKeyCount: heldCount,
-            hasPhysicalCluster: hasCluster
+            simultaneousKeyCount: features.simultaneousCount,
+            burstKeyCount: features.burstCount,
+            rapidClusterKeyCount: features.rapidClusterCount,
+            heldKeyCount: features.simultaneousCount,
+            hasPhysicalCluster: signals.contains(.physicalCluster),
+            isImmediate: isImmediate,
+            features: features
         )
     }
 
-    private func maximumRapidClusterCount(in samples: [KeyboardEventSample]) -> Int {
-        let keyDowns = samples.filter {
-            $0.type == .keyDown && !$0.isRepeat && !KeyboardGeometry.isModifier($0.keyCode)
-        }
-        guard keyDowns.count >= 3 else { return 0 }
-
-        var maximum = 0
-        for startIndex in keyDowns.indices {
-            var keys = Set<CGKeyCode>()
-            for sample in keyDowns[startIndex...] {
-                guard sample.timestamp - keyDowns[startIndex].timestamp <= DetectionRules.simultaneousWindow else {
-                    break
-                }
-                keys.insert(sample.keyCode)
-                if keys.count >= 3, KeyboardGeometry.isTightCluster(keys) {
-                    maximum = max(maximum, keys.count)
-                }
-            }
-        }
-        return maximum
+    private func matchesAllowedKeySet(_ keys: Set<CGKeyCode>) -> Bool {
+        guard !keys.isEmpty else { return false }
+        return allowedKeySets.contains { keys == $0 || keys.isSubset(of: $0) }
     }
 }

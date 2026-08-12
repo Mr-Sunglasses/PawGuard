@@ -1,0 +1,6 @@
+{"flags": 0, "key": 4, "kind": "down", "repeated": false, "time": 0.0}
+{"flags": 0, "key": 5, "kind": "down", "repeated": false, "time": 0.00814}
+{"flags": 0, "key": 38, "kind": "down", "repeated": false, "time": 0.02311}
+{"flags": 0, "key": 4, "kind": "up", "repeated": false, "time": 5.0}
+{"flags": 0, "key": 5, "kind": "up", "repeated": false, "time": 5.012}
+{"flags": 0, "key": 38, "kind": "up", "repeated": false, "time": 5.024}

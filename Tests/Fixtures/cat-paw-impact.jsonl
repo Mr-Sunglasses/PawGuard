@@ -1,0 +1,10 @@
+{"flags": 0, "key": 5, "kind": "down", "repeated": false, "time": 0.0}
+{"flags": 0, "key": 3, "kind": "down", "repeated": false, "time": 0.01314}
+{"flags": 0, "key": 4, "kind": "down", "repeated": false, "time": 0.024}
+{"flags": 0, "key": 17, "kind": "down", "repeated": false, "time": 0.03725}
+{"flags": 0, "key": 9, "kind": "down", "repeated": false, "time": 0.04455}
+{"flags": 0, "key": 5, "kind": "up", "repeated": false, "time": 2.4}
+{"flags": 0, "key": 3, "kind": "up", "repeated": false, "time": 2.412}
+{"flags": 0, "key": 4, "kind": "up", "repeated": false, "time": 2.424}
+{"flags": 0, "key": 17, "kind": "up", "repeated": false, "time": 2.436}
+{"flags": 0, "key": 9, "kind": "up", "repeated": false, "time": 2.448}

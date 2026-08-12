@@ -30,7 +30,7 @@ xcodebuild \
     -scheme "$PAWGUARD_SCHEME" \
     -configuration Debug \
     -sdk macosx \
-    -derivedDataPath "$PAWGUARD_PROJECT_ROOT/.build-analyze" \
+    -derivedDataPath "$PAWGUARD_PROJECT_ROOT/.build/analyze" \
     CODE_SIGNING_ALLOWED=NO \
     analyze \
     -quiet

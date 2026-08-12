@@ -7,7 +7,9 @@ struct CatDetectedView: View {
     let total: TimeInterval
     let accentTheme: AccentTheme
     let isTest: Bool
+    let undoableKeystrokes: Int
     let onUnlock: () -> Void
+    let onUndo: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
@@ -62,6 +64,14 @@ struct CatDetectedView: View {
                     }
                 }
                 Spacer()
+                if !isTest && undoableKeystrokes > 0 {
+                    Button(action: onUndo) {
+                        Text("Undo \(undoableKeystrokes) key\(undoableKeystrokes == 1 ? "" : "s")")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .help("Removes the characters that reached the app before PawGuard stepped in.")
+                }
                 Button(isTest ? "Close Preview" : "Unlock Now", action: onUnlock)
                     .buttonStyle(.borderedProminent)
                     .tint(accent)

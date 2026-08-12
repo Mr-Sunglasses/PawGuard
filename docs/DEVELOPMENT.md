@@ -11,7 +11,7 @@ make run
 
 `make setup` checks macOS and Xcode, installs XcodeGen with Homebrew when necessary, generates `PawGuard.xcodeproj`, performs an unsigned Debug build, and runs the environment doctor.
 
-`make run` builds PawGuard into `.build-signed`, applies the selected Apple Development signature, verifies the bundle identifier and signature, then launches the exact signed product.
+`make run` builds PawGuard into `.build/signed`, applies the selected Apple Development signature, verifies the bundle identifier and signature, then launches the exact signed product.
 
 ## Make targets
 
@@ -157,6 +157,18 @@ This development archive is not notarized. It is suitable for local transfer and
 | `check.sh` | Local CI-equivalent checks |
 | `format.sh` | Xcode-provided Swift formatter |
 | `clean.sh` | Validated build-output cleanup |
+
+## Detection traces
+
+`Tests/Fixtures/*.jsonl` holds keyboard traces replayed by `TraceReplayTests`. One JSON object per line:
+
+```json
+{"flags":0,"key":3,"kind":"down","repeated":false,"time":0.0}
+```
+
+`kind` is `down`, `up`, or `flags`; `time` is in seconds from the start of the trace. Files named `cat-*` must trigger protection; every other file must not. Drop a recorded session in beside the generated ones and it is picked up automatically — no project changes needed.
+
+When you change score weights, run `make test` and read the replay failures: they name the trace and its peak score, which is usually enough to see whether the change helped or just moved the problem.
 | `logs.sh` | Recent or streaming unified logs |
 | `package.sh` | Signed local ZIP and checksum |
 

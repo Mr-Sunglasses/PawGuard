@@ -24,7 +24,7 @@ TEST_ARGS=(
     -scheme "$PAWGUARD_SCHEME"
     -configuration Debug
     -sdk macosx
-    -derivedDataPath "$PAWGUARD_PROJECT_ROOT/.build-tests"
+    -derivedDataPath "$PAWGUARD_PROJECT_ROOT/.build/tests"
     CODE_SIGNING_ALLOWED=NO
     test
 )

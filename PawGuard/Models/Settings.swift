@@ -63,6 +63,17 @@ struct PawGuardSettings: Codable, Equatable {
     var accentTheme: AccentTheme = .automatic
     var showCatPhoto = true
     var animationIntensity: Double = 0.8
+    /// Withhold borderline input briefly and replay it if it turns out human,
+    /// instead of locking on the first crossing of the threshold.
+    var useGraceWindow = true
+    /// Let PawGuard learn from emergency unlocks and from how this user types.
+    var adaptiveCalibration = true
+    /// Offer to remove what the cat typed before protection engaged.
+    var offerUndo = true
+    /// Stay out of the way while a full-screen app such as a game is frontmost.
+    var pauseInFullscreen = true
+    /// Bundle identifiers PawGuard never protects.
+    var disabledBundleIdentifiers: [String] = []
 
     var detectionThreshold: Int {
         sensitivity.threshold ?? max(30, min(100, customThreshold))

@@ -3,12 +3,25 @@ import Foundation
 enum ProtectionState: Equatable {
     case monitoring
     case suspicious(score: Int)
+    /// Input is being withheld while a borderline detection is confirmed.
+    /// Ends either in a lock or in the withheld input being replayed.
+    case grace(until: Date)
     case locked(until: Date)
     case cooldown(until: Date)
 
     var isLocked: Bool {
         if case .locked = self { return true }
         return false
+    }
+
+    var isGrace: Bool {
+        if case .grace = self { return true }
+        return false
+    }
+
+    /// True while keyboard input is not reaching applications.
+    var withholdsInput: Bool {
+        isLocked || isGrace
     }
 }
 
@@ -32,12 +45,37 @@ final class ProtectionManager {
     }
 
     @discardableResult
+    func beginGrace(
+        for duration: TimeInterval = DetectionRules.graceWindow,
+        now: Date = .now
+    ) -> Date {
+        lock.lock()
+        let until = now.addingTimeInterval(duration)
+        currentState = .grace(until: until)
+        lock.unlock()
+        return until
+    }
+
+    @discardableResult
     func lockKeyboard(for duration: TimeInterval, now: Date = .now) -> Date {
         lock.lock()
         let until = now.addingTimeInterval(duration)
         currentState = .locked(until: until)
         lock.unlock()
         return until
+    }
+
+    /// Abandons a grace window without locking, so withheld input can be
+    /// replayed and monitoring resumes immediately.
+    @discardableResult
+    func cancelGrace() -> ProtectionState {
+        lock.lock()
+        if case .grace = currentState {
+            currentState = .monitoring
+        }
+        let result = currentState
+        lock.unlock()
+        return result
     }
 
     @discardableResult

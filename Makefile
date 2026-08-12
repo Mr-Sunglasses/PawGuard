@@ -106,7 +106,7 @@ test:
 
 ## Run Xcode static analysis
 analyze: generate
-	@xcodebuild -project PawGuard.xcodeproj -scheme PawGuard -configuration Debug -sdk macosx -derivedDataPath .build-analyze CODE_SIGNING_ALLOWED=NO analyze -quiet
+	@xcodebuild -project PawGuard.xcodeproj -scheme PawGuard -configuration Debug -sdk macosx -derivedDataPath .build/analyze CODE_SIGNING_ALLOWED=NO analyze -quiet
 
 ## Run the complete local validation suite
 check:

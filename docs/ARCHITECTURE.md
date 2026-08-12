@@ -5,25 +5,39 @@ PawGuard is a native macOS 14+ menu-bar app built with SwiftUI, AppKit, Applicat
 ## Runtime flow
 
 ```text
-CGEventTap
+CGEventTap  (dedicated thread, own run loop)
    ↓ metadata only
 KeyboardEventMonitor
    ↓ KeyboardEventSample
 KeyboardEngine
-   ├─ CatDetector → DetectionResult
-   └─ ProtectionManager → monitoring / locked / cooldown
-          ↓ callbacks
-       AppState
+   ├─ CatDetector → DetectionFeatures → DetectionResult
+   ├─ ProtectionManager → monitoring / grace / locked / cooldown
+   └─ KeyboardEventInjector → replayed input, key-up release, undo
+          ↓ callbacks (hopped to the main actor)
+       ProtectionCoordinator
           ├─ CatOverlayController
-          ├─ menu-bar and settings state
-          └─ aggregate StatisticsStore
+          ├─ CalibrationStore
+          ├─ DetectionContextProbe
+          └─ StatisticsStore
+       AccessibilityWatcher
+          └─ monitor lifecycle
+          ↓
+       AppState  (presentation glue for menu bar, settings, onboarding)
 ```
 
 ## Responsibilities
 
 ### AppState
 
-`AppState` is the main-actor coordinator. It owns stores and services, connects engine callbacks to UI state, polls Accessibility trust, updates overlay countdowns, records aggregate statistics, and controls onboarding and settings actions.
+`AppState` composes the stores and the two objects that do the work, and exposes them to SwiftUI. It holds no protection logic of its own.
+
+### ProtectionCoordinator
+
+Owns the engine, the monitor, the overlay, and the quarter-second tick. Each tick reconciles held keys against the hardware, re-evaluates a possibly still paw, advances protection state, and drives the overlay countdown. It also records statistics and feeds the calibration store the outcome of each lock.
+
+### AccessibilityWatcher
+
+Owns Accessibility trust and the monitor's lifecycle. macOS has no direct observer for a permission change, but it posts a distributed notification, and permission is nearly always granted while the user is away in System Settings, so the watcher reacts to that notification and to app activation with a slow two-second fallback poll rather than checking four times a second.
 
 ### AccessibilityManager
 
@@ -31,21 +45,31 @@ The permission service reads current process trust from macOS, requests the syst
 
 ### KeyboardEventMonitor
 
-The monitor installs a session event tap for key-down, key-up, and modifier-state events. It maps each event to metadata and returns either the original event or `nil`. Returning `nil` only happens while `ProtectionManager` is locked.
+The monitor installs a session event tap for key-down, key-up, and modifier-state events on **its own thread with its own run loop**. On the main run loop every keystroke on the system would be dispatched behind SwiftUI rendering, so a slow frame would delay input machine-wide and a slow enough one would make macOS disable the tap. Timestamps are converted through `MonotonicClock`, and events PawGuard injected itself are recognised by their marker and passed straight through. A tap that cannot be re-enabled after a timeout is rebuilt rather than left silently dead.
+
+### CatDetector and DetectionFeatures
+
+`DetectionFeatures.extract` turns the rolling buffer and held-key set into named measurements — overlap, cluster shape, impact synchrony, hold durations, rhythm, hand alternation, sustained key rate. `CatDetector` scores those features with smooth ramps and the weights in `DetectionWeights`, producing a 0-100 score. Separating the two keeps the score readable and lets features be tested and logged on their own.
 
 ### CatDetector
 
-The detector owns a short rolling sample buffer and held-key timestamps. It calculates a confidence score from overlap, physical proximity, burst rate, hold duration, and repeat evidence. Human-pattern exemptions are implemented beside the scoring logic and covered by tests.
-
 ### KeyboardEngine and ProtectionManager
 
-`KeyboardEngine` is the decision boundary between detection and suppression. A non-modifier key-down with `.cat` confidence can start protection immediately. The app timer also asks the engine to re-evaluate three or more physically held keys, allowing a quiet paw rest to mature without relying on autorepeat. Released keys cannot trigger this periodic path. `ProtectionManager` owns the thread-safe state machine and controls lock expiry, manual unlock, cooldown, and optional activity extension.
+`KeyboardEngine` is the decision boundary between detection and suppression, and the single point of serialization: `process` runs on the tap thread while the tick runs on the main actor, so the detector, the protection state, and all event bookkeeping sit behind one recursive lock.
+
+Borderline evidence opens a grace window instead of locking: input is withheld and buffered, and when the window closes the engine either commits to a lock or replays the buffered events. Overwhelming evidence skips the window. On locking, the engine synthesises key-ups for everything applications already saw, so nothing is left stuck down. The tick also re-evaluates three or more physically held keys, allowing a quiet paw rest to mature without relying on autorepeat.
+
+`ProtectionManager` owns the thread-safe state machine — monitoring, grace, locked, cooldown — and controls lock expiry, manual unlock, and optional activity extension. Its wall clock is injectable, which is how the grace window is tested without waiting.
 
 If macOS disables the event tap because of a timeout or user-input interruption, `KeyboardEventMonitor` clears detector state before re-enabling the tap. This prevents keys whose key-up events were missed during the interruption from remaining falsely held.
 
+### CalibrationStore and DetectionContextProbe
+
+`CalibrationStore` turns unlock behaviour into a threshold offset and a personal chord allowlist, all stored locally as key codes and scores. `DetectionContextProbe` reports secure input, the frontmost app, and whether it is full-screen, which the coordinator turns into a suppression decision each tick.
+
 ### CatOverlayController
 
-The overlay controller hosts a SwiftUI view inside a floating AppKit panel. It appears near the top of the display containing the pointer, joins all Spaces, supports full-screen auxiliary presentation, and can be dragged by its background. Mouse and trackpad input remain available.
+The overlay controller hosts a SwiftUI view inside a floating AppKit panel. It appears near the top of the display containing the pointer, joins all Spaces, and supports full-screen auxiliary presentation. It never becomes key — it appears precisely when a cat is on the keyboard, and taking focus would aim that input at PawGuard — and is not draggable, since a cat on the trackpad would otherwise push it off screen. Mouse and trackpad input remain available, and the panel offers to undo whatever the cat typed before protection engaged.
 
 ## Persistence
 
@@ -54,6 +78,7 @@ The overlay controller hosts a SwiftUI view inside a floating AppKit panel. It a
 | Settings and onboarding state | `UserDefaults` |
 | Cat profile metadata | `UserDefaults` |
 | Aggregate intervention statistics | `UserDefaults` |
+| Calibration profile and detection shapes | `UserDefaults`, key codes and scores only |
 | Normalized cat photos | Application Support |
 | Keyboard samples | Memory only, maximum 1.2-second rolling window |
 
