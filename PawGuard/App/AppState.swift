@@ -48,9 +48,14 @@ final class AppState: ObservableObject {
             lockDuration: settings.lockDuration
         )
         keyboardEngine = engine
-        keyboardMonitor = KeyboardEventMonitor { [weak engine] sample in
-            engine?.process(sample) ?? true
-        }
+        keyboardMonitor = KeyboardEventMonitor(
+            handler: { [weak engine] sample in
+                engine?.process(sample) ?? true
+            },
+            interruptionHandler: { [weak engine] in
+                engine?.resetDetectionAfterMonitorInterruption()
+            }
+        )
         overlayController = CatOverlayController()
 
         settingsStore.objectWillChange
@@ -66,6 +71,11 @@ final class AppState: ObservableObject {
         engine.onCatDetected = { [weak self] result in
             Task { @MainActor [weak self] in
                 self?.handleDetection(result)
+            }
+        }
+        engine.onDetectionUpdated = { [weak self] result in
+            Task { @MainActor [weak self] in
+                self?.currentDetection = result
             }
         }
         engine.onBlockedActivity = { [weak self] in
@@ -125,6 +135,7 @@ final class AppState: ObservableObject {
         } else if !trusted {
             keyboardMonitoringAvailable = false
             keyboardMonitor.stop()
+            keyboardEngine.resetDetectionAfterMonitorInterruption()
         }
     }
 
@@ -303,6 +314,7 @@ final class AppState: ObservableObject {
             extendOnActivity: settingsStore.settings.extendOnActivity,
             lockDuration: settingsStore.settings.lockDuration
         )
+        _ = keyboardEngine.evaluateHeldKeys(at: ProcessInfo.processInfo.systemUptime)
 
         if pendingBlockedEvents > 0 {
             statisticsStore.recordBlockedEvents(pendingBlockedEvents)
@@ -343,9 +355,6 @@ final class AppState: ObservableObject {
             overlayRemaining = 0
         }
 
-        if case .monitoring = nextState, !wasLocked {
-            currentDetection = .empty
-        }
     }
 
     private func refreshAccessibilityIfNeeded() {

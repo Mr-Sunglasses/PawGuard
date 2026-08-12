@@ -88,6 +88,60 @@ final class CatDetectorTests: XCTestCase {
         XCTAssertTrue(result.signals.contains(.physicalCluster))
     }
 
+    func testCompactFourKeyPawTriggersImmediately() {
+        let detector = CatDetector()
+        var result = DetectionResult.empty
+        for (index, key) in [3, 5, 4, 38].enumerated() {  // F G H J
+            result = detector.process(sample(CGKeyCode(key), time: Double(index) * 0.02, type: .keyDown))
+        }
+        XCTAssertEqual(result.confidence, .cat)
+        XCTAssertEqual(result.rapidClusterKeyCount, 4)
+        XCTAssertTrue(result.signals.contains(.rapidCluster))
+    }
+
+    func testCompactThreeKeyPawTriggersAfterQuietHold() {
+        let detector = CatDetector()
+        for (index, key) in [3, 5, 4].enumerated() {  // F G H
+            _ = detector.process(sample(CGKeyCode(key), time: Double(index) * 0.02, type: .keyDown))
+        }
+
+        let result = detector.evaluate(at: 0.8)
+
+        XCTAssertEqual(result.confidence, .cat)
+        XCTAssertEqual(result.heldKeyCount, 3)
+        XCTAssertTrue(result.signals.contains(.multiKeyHold))
+        XCTAssertTrue(result.signals.contains(.rapidCluster))
+    }
+
+    func testReleasedThreeKeyRolloverDoesNotTriggerOnLaterEvaluation() {
+        let detector = CatDetector()
+        for (index, key) in [4, 14, 37].enumerated() {  // H E L
+            let time = Double(index) * 0.04
+            _ = detector.process(sample(CGKeyCode(key), time: time, type: .keyDown))
+            _ = detector.process(sample(CGKeyCode(key), time: time + 0.025, type: .keyUp))
+        }
+
+        let result = detector.evaluate(at: 0.8)
+
+        XCTAssertNotEqual(result.confidence, .cat)
+        XCTAssertEqual(result.heldKeyCount, 0)
+    }
+
+    func testModifierDoesNotHideClusteredPawPress() {
+        let detector = CatDetector()
+        let modifiers = CGEventFlags.maskCommand
+        _ = detector.process(sample(55, time: 0, type: .keyDown, modifiers: modifiers))
+        var result = DetectionResult.empty
+        for (index, key) in [3, 5, 4, 38].enumerated() {  // F G H J
+            result = detector.process(
+                sample(CGKeyCode(key), time: 0.01 + Double(index) * 0.02, type: .keyDown, modifiers: modifiers)
+            )
+        }
+
+        XCTAssertEqual(result.confidence, .cat)
+        XCTAssertTrue(result.hasPhysicalCluster)
+    }
+
     func testCatRestingOnKeyboardTriggersAfterHold() {
         let detector = CatDetector()
         for (index, key) in [38, 40, 37, 41].enumerated() {  // J K L ;

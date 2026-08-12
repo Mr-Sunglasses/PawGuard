@@ -39,7 +39,9 @@ The detector owns a short rolling sample buffer and held-key timestamps. It calc
 
 ### KeyboardEngine and ProtectionManager
 
-`KeyboardEngine` is the decision boundary between detection and suppression. Only a non-modifier key-down with `.cat` confidence can start protection. `ProtectionManager` owns the thread-safe state machine and controls lock expiry, manual unlock, cooldown, and optional activity extension.
+`KeyboardEngine` is the decision boundary between detection and suppression. A non-modifier key-down with `.cat` confidence can start protection immediately. The app timer also asks the engine to re-evaluate three or more physically held keys, allowing a quiet paw rest to mature without relying on autorepeat. Released keys cannot trigger this periodic path. `ProtectionManager` owns the thread-safe state machine and controls lock expiry, manual unlock, cooldown, and optional activity extension.
+
+If macOS disables the event tap because of a timeout or user-input interruption, `KeyboardEventMonitor` clears detector state before re-enabling the tap. This prevents keys whose key-up events were missed during the interruption from remaining falsely held.
 
 ### CatOverlayController
 

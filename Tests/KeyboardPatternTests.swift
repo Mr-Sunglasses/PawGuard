@@ -73,4 +73,89 @@ final class KeyboardPatternTests: XCTestCase {
         }
         XCTAssertEqual(until, start.addingTimeInterval(27))
     }
+
+    func testEngineDetectsQuietThreeKeyPawWithoutAutorepeat() {
+        let engine = KeyboardEngine(threshold: 70, extendOnActivity: true, lockDuration: 20)
+        for (index, key) in [3, 5, 4].enumerated() {  // F G H
+            XCTAssertTrue(
+                engine.process(
+                    KeyboardEventSample(
+                        keyCode: CGKeyCode(key),
+                        timestamp: Double(index) * 0.02,
+                        type: .keyDown
+                    )
+                )
+            )
+        }
+
+        let result = engine.evaluateHeldKeys(at: 0.8)
+
+        XCTAssertEqual(result.confidence, .cat)
+        XCTAssertTrue(engine.state.isLocked)
+    }
+
+    func testMonitoringTimerDoesNotEraseHeldKeysBeforeHoldMatures() {
+        let engine = KeyboardEngine(threshold: 70, extendOnActivity: true, lockDuration: 20)
+        for (index, key) in [3, 5, 4].enumerated() {  // F G H
+            _ = engine.process(
+                KeyboardEventSample(
+                    keyCode: CGKeyCode(key),
+                    timestamp: Double(index) * 0.02,
+                    type: .keyDown
+                )
+            )
+        }
+
+        for timerTimestamp in [0.25, 0.5] {
+            let result = engine.evaluateHeldKeys(at: timerTimestamp)
+            XCTAssertEqual(result.heldKeyCount, 3)
+            XCTAssertFalse(engine.state.isLocked)
+            XCTAssertEqual(engine.advance(), .monitoring)
+        }
+
+        let maturedResult = engine.evaluateHeldKeys(at: 0.8)
+        XCTAssertEqual(maturedResult.confidence, .cat)
+        XCTAssertTrue(engine.state.isLocked)
+    }
+
+    func testEngineDoesNotDetectReleasedHumanRolloverOnTimer() {
+        let engine = KeyboardEngine(threshold: 70, extendOnActivity: true, lockDuration: 20)
+        for (index, key) in [4, 14, 37].enumerated() {  // H E L
+            let time = Double(index) * 0.04
+            XCTAssertTrue(
+                engine.process(
+                    KeyboardEventSample(keyCode: CGKeyCode(key), timestamp: time, type: .keyDown)
+                )
+            )
+            XCTAssertTrue(
+                engine.process(
+                    KeyboardEventSample(keyCode: CGKeyCode(key), timestamp: time + 0.025, type: .keyUp)
+                )
+            )
+        }
+
+        let result = engine.evaluateHeldKeys(at: 0.8)
+
+        XCTAssertEqual(result.heldKeyCount, 0)
+        XCTAssertFalse(engine.state.isLocked)
+    }
+
+    func testMonitorInterruptionClearsHeldKeyState() {
+        let engine = KeyboardEngine(threshold: 70, extendOnActivity: true, lockDuration: 20)
+        for (index, key) in [3, 5, 4].enumerated() {
+            _ = engine.process(
+                KeyboardEventSample(
+                    keyCode: CGKeyCode(key),
+                    timestamp: Double(index) * 0.02,
+                    type: .keyDown
+                )
+            )
+        }
+
+        engine.resetDetectionAfterMonitorInterruption()
+        let result = engine.evaluateHeldKeys(at: 0.8)
+
+        XCTAssertEqual(result.heldKeyCount, 0)
+        XCTAssertFalse(engine.state.isLocked)
+    }
 }

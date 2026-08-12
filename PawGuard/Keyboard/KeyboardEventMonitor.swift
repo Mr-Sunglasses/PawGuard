@@ -3,14 +3,19 @@ import Foundation
 
 final class KeyboardEventMonitor {
     private let handler: (KeyboardEventSample) -> Bool
+    private let interruptionHandler: () -> Void
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
     private(set) var isRunning = false
     private(set) var lastStartError: String?
 
-    init(handler: @escaping (KeyboardEventSample) -> Bool) {
+    init(
+        handler: @escaping (KeyboardEventSample) -> Bool,
+        interruptionHandler: @escaping () -> Void = {}
+    ) {
         self.handler = handler
+        self.interruptionHandler = interruptionHandler
     }
 
     @discardableResult
@@ -67,6 +72,7 @@ final class KeyboardEventMonitor {
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            interruptionHandler()
             reenable()
             return Unmanaged.passUnretained(event)
         case .keyDown, .keyUp, .flagsChanged:

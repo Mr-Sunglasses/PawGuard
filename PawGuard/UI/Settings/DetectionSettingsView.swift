@@ -57,6 +57,7 @@ struct DetectionSettingsView: View {
                         Text("Current score  \(appState.currentDetection.score)")
                         Text("Held keys     \(appState.currentDetection.heldKeyCount)")
                         Text("Burst count   \(appState.currentDetection.burstKeyCount)")
+                        Text("Rapid cluster \(appState.currentDetection.rapidClusterKeyCount)")
                         Text("Cluster       \(appState.currentDetection.hasPhysicalCluster ? "yes" : "no")")
                         Text("Threshold     \(appState.settingsStore.settings.detectionThreshold)")
                     }
