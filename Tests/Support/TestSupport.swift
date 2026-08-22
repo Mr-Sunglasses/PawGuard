@@ -240,6 +240,114 @@ enum TraceGenerator {
         return samples.sorted { $0.timestamp < $1.timestamp }
     }
 
+    /// A key held down long enough for macOS to autorepeat it, with the system
+    /// default timings. The repeats are what a resting paw actually produces,
+    /// and what the user watches pile up on screen.
+    static func heldKeyWithAutorepeat(
+        _ key: CGKeyCode,
+        duration: TimeInterval,
+        startTime: TimeInterval = 0,
+        initialDelay: TimeInterval = 0.375,
+        repeatInterval: TimeInterval = 0.090
+    ) -> [KeyboardEventSample] {
+        var samples = [makeSample(key, time: startTime, type: .keyDown)]
+        var time = startTime + initialDelay
+        while time < startTime + duration {
+            samples.append(makeSample(key, time: time, type: .keyDown, isRepeat: true))
+            time += repeatInterval
+        }
+        samples.append(makeSample(key, time: startTime + duration, type: .keyUp))
+        return samples
+    }
+
+    /// A kitten's paw: one or two neighbouring keys, pressed together and left
+    /// there. Too small for any of the three-key clustering signals to see.
+    static func kittenPaw(
+        anchor: CGKeyCode,
+        keyCount: Int,
+        hold: TimeInterval,
+        startTime: TimeInterval = 0,
+        seed: UInt64 = 1
+    ) -> [KeyboardEventSample] {
+        var generator = SeededGenerator(seed: seed)
+        let keys = pawKeys(anchor: anchor, count: keyCount)
+        guard !keys.isEmpty else { return [] }
+
+        var samples: [KeyboardEventSample] = []
+        var time = startTime
+        for key in keys {
+            samples.append(makeSample(key, time: time, type: .keyDown))
+            time += generator.double(in: 0.006...0.028)
+        }
+        // macOS autorepeats the most recently pressed key.
+        if let last = keys.last {
+            var repeatTime = time + 0.375
+            while repeatTime < startTime + hold {
+                samples.append(makeSample(last, time: repeatTime, type: .keyDown, isRepeat: true))
+                repeatTime += 0.090
+            }
+        }
+        for (index, key) in keys.enumerated() {
+            samples.append(makeSample(key, time: startTime + hold + Double(index) * 0.01, type: .keyUp))
+        }
+        return samples.sorted { $0.timestamp < $1.timestamp }
+    }
+
+    /// A kitten crossing the keyboard: small touches in a row, each landing
+    /// within a paw's reach of the last. A cat steps from key to neighbouring
+    /// key; it does not jump to wherever the next letter of a word lives.
+    static func kittenWalk(seed: UInt64, steps: Int = 6, startTime: TimeInterval = 0) -> [KeyboardEventSample] {
+        var generator = SeededGenerator(seed: seed)
+        let placed = (0...127).map(CGKeyCode.init).filter {
+            KeyboardGeometry.position(for: $0) != nil && !KeyboardGeometry.isModifier($0)
+        }
+        guard var anchor = placed.randomElement(using: &generator) else { return [] }
+
+        var samples: [KeyboardEventSample] = []
+        var time = startTime
+        for _ in 0..<steps {
+            let reachable = placed.filter {
+                guard let from = KeyboardGeometry.position(for: anchor),
+                    let to = KeyboardGeometry.position(for: $0)
+                else { return false }
+                let distance = from.distance(to: to)
+                return distance > 0 && distance <= 2.0
+            }
+            if let next = reachable.randomElement(using: &generator) { anchor = next }
+            let hold = generator.double(in: 0.6...1.3)
+            samples += kittenPaw(
+                anchor: anchor,
+                keyCount: Int.random(in: 1...2, using: &generator),
+                hold: hold,
+                startTime: time,
+                seed: generator.next()
+            )
+            time += hold + generator.double(in: 0.12...0.5)
+        }
+        return samples.sorted { $0.timestamp < $1.timestamp }
+    }
+
+    /// Slow, deliberate typing: one key at a time, each held long enough to
+    /// start autorepeating. A hesitant typist, or one working around a motor
+    /// impairment, and the hardest human pattern to tell from a cat padding
+    /// across the keys one key at a time.
+    static func deliberateTyping(
+        seed: UInt64,
+        keyCount: Int,
+        holdRange: ClosedRange<TimeInterval>
+    ) -> [KeyboardEventSample] {
+        var generator = SeededGenerator(seed: seed)
+        var samples: [KeyboardEventSample] = []
+        var time: TimeInterval = 0
+        for _ in 0..<keyCount {
+            let key = commonKeys.randomElement(using: &generator) ?? 0
+            let hold = generator.double(in: holdRange)
+            samples += heldKeyWithAutorepeat(key, duration: hold, startTime: time)
+            time += hold + generator.double(in: 0.08...0.9)
+        }
+        return samples.sorted { $0.timestamp < $1.timestamp }
+    }
+
     /// A cat settling across the keyboard: two paw areas pressed a moment apart
     /// and held for a long time.
     static func catSitting(seed: UInt64, startTime: TimeInterval) -> [KeyboardEventSample] {

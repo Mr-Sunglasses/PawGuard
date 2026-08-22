@@ -59,6 +59,8 @@ final class CalibrationStore: ObservableObject {
     /// A lock dismissed faster than this is treated as a false positive.
     static let falsePositiveWindow: TimeInterval = 6
     private static let historyLimit = 25
+    /// Widest chord the user can teach PawGuard to ignore.
+    static let maximumLearnableChordSize = 4
     /// How many overlap samples accumulate before the profile is updated.
     static let calibrationBatchSize = 400
 
@@ -112,8 +114,13 @@ final class CalibrationStore: ObservableObject {
 
         // A chord that has now been wrong twice is something this user does on
         // purpose. Stop treating it as evidence at all.
+        //
+        // Only small chords are learnable. `matchesAllowedKeySet` exempts every
+        // subset of an allowed set, so learning a wide one would quietly
+        // exempt a whole region of the keyboard — and a paw landing inside that
+        // region with it.
         let keys = recentDetections[0].heldKeys
-        if keys.count >= 2 {
+        if (2...Self.maximumLearnableChordSize).contains(keys.count) {
             let priorMisses = recentDetections.filter { $0.wasFalsePositive == true && $0.heldKeys == keys }.count
             if priorMisses >= 2, !profile.allowedKeySets.contains(keys) {
                 profile.allowedKeySets.append(keys)

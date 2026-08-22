@@ -26,8 +26,10 @@
 		4C1E95D8DB4107F99DC3D7F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6F3E02F95AEFF811D7B86A27 /* Assets.xcassets */; };
 		5901A3FBCEFC158C08E97D45 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C015984B636A07950A8786 /* MenuBarView.swift */; };
 		5A8B48B1DF2805848FECF036 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD4A80B959678AEC6D2C5C22 /* AppState.swift */; };
+		5F3C45BEB2F438834682EC32 /* CodeSignatureInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA4058340AB727A5775B504 /* CodeSignatureInfo.swift */; };
 		60F4DB6F236CFCA6470ADF49 /* ProtectionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59C57DE7A1CB14D410DB5F85 /* ProtectionCoordinator.swift */; };
 		63CAFE90D4BB106806AF8ABD /* human-typing-slow.jsonl in Resources */ = {isa = PBXBuildFile; fileRef = 829A7B250809D04074C8857A /* human-typing-slow.jsonl */; };
+		66F363AABA41AE3FBCCAD5D8 /* AccessibilityWatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018EF145CF53F37EB72A398D /* AccessibilityWatcherTests.swift */; };
 		67BB9C4BE50F9DD7035C0C94 /* DetectionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0B525D67D1CA17F09B7C00 /* DetectionSettingsView.swift */; };
 		68344B2E8CC7089D1DBC6B9F /* DetectionFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67C5D7210106D923123C9BB2 /* DetectionFeatureTests.swift */; };
 		6FF817497D98BFD41205E10F /* PawGuardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C5F97024103EE8231561794 /* PawGuardApp.swift */; };
@@ -78,6 +80,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		018EF145CF53F37EB72A398D /* AccessibilityWatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityWatcherTests.swift; sourceTree = "<group>"; };
 		05DB40B39C335EEE7793A220 /* KeyboardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardEngine.swift; sourceTree = "<group>"; };
 		0BA0F1B2F585B825F87BBF11 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		134F0BCE4812DFFBBFEBCCF6 /* DetectionCalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionCalibration.swift; sourceTree = "<group>"; };
@@ -127,6 +130,7 @@
 		AF7863F793FA0BE2C8FE2D5C /* KeyboardGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardGeometry.swift; sourceTree = "<group>"; };
 		B021F202971215B065F81338 /* RollingEventBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RollingEventBuffer.swift; sourceTree = "<group>"; };
 		B0D71C0D7A0EC1B1C22075E0 /* CatDetectedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatDetectedView.swift; sourceTree = "<group>"; };
+		BBA4058340AB727A5775B504 /* CodeSignatureInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSignatureInfo.swift; sourceTree = "<group>"; };
 		BCACD203EB66C3768677A0B9 /* CalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibrationTests.swift; sourceTree = "<group>"; };
 		BF66CED9999A0617A3198619 /* CatProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatProfileStore.swift; sourceTree = "<group>"; };
 		D0BA36A71A63C9E38F212321 /* CatAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatAvatarView.swift; sourceTree = "<group>"; };
@@ -252,6 +256,7 @@
 			children = (
 				7510B18B6101DB919013CACB /* AccessibilityManager.swift */,
 				4100AD627AB19E9EB615FAC0 /* AccessibilityWatcher.swift */,
+				BBA4058340AB727A5775B504 /* CodeSignatureInfo.swift */,
 			);
 			path = Permissions;
 			sourceTree = "<group>";
@@ -269,6 +274,7 @@
 			children = (
 				D1967EEA4E2A759B121E2D97 /* Fixtures */,
 				C571EB0DC418568FB11F2460 /* Support */,
+				018EF145CF53F37EB72A398D /* AccessibilityWatcherTests.swift */,
 				BCACD203EB66C3768677A0B9 /* CalibrationTests.swift */,
 				E012273FF8E9359C7C904CA5 /* CatDetectorTests.swift */,
 				DC344EA56B53D025AA796910 /* CatMessageTests.swift */,
@@ -403,9 +409,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					067C74DCD7D97EECF95754CC = {
+						DevelopmentTeam = "${PAWGUARD_TEAM_ID}";
 						ProvisioningStyle = Automatic;
 					};
 					87C862789B1470B34688820F = {
+						DevelopmentTeam = "${PAWGUARD_TEAM_ID}";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -463,6 +471,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				66F363AABA41AE3FBCCAD5D8 /* AccessibilityWatcherTests.swift in Sources */,
 				3BE307B70F5D7659928A2C1D /* CalibrationTests.swift in Sources */,
 				F750636D2B42C8419F99C63A /* CatDetectorTests.swift in Sources */,
 				9E3140903D005A56ED3CDA9B /* CatMessageTests.swift in Sources */,
@@ -493,6 +502,7 @@
 				2171A36AF13F218740134FA1 /* CatProfile.swift in Sources */,
 				E8C61F0F6108B065C02C678D /* CatProfileSettingsView.swift in Sources */,
 				70A1B8C28F2A91FF8F9D6C63 /* CatProfileStore.swift in Sources */,
+				5F3C45BEB2F438834682EC32 /* CodeSignatureInfo.swift in Sources */,
 				A68E93592E69138F26A9BDBF /* CountdownRing.swift in Sources */,
 				F12795D49DCF580312CB77D2 /* DetectionCalibration.swift in Sources */,
 				C624BC28C07C4D8B086D86BE /* DetectionContext.swift in Sources */,
@@ -567,6 +577,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "${PAWGUARD_TEAM_ID}";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -631,6 +642,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "${PAWGUARD_TEAM_ID}";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;

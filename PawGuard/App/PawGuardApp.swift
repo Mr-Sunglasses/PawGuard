@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -9,7 +10,11 @@ struct PawGuardApp: App {
             MenuBarView()
                 .environmentObject(appState)
         } label: {
-            Label("PawGuard", systemImage: appState.isLocked ? "lock.fill" : "pawprint.fill")
+            // The label is the one view that exists from launch: the popover's
+            // content is not built until the user clicks the icon. Setup used to
+            // be opened from there, so a first-time user saw nothing at all
+            // until they thought to open a menu they had no reason to open.
+            MenuBarLabel(isLocked: appState.isLocked, shouldOfferSetup: appState.shouldOfferSetupOnLaunch)
         }
         .menuBarExtraStyle(.window)
 
@@ -24,5 +29,26 @@ struct PawGuardApp: App {
             SettingsView()
                 .environmentObject(appState)
         }
+    }
+}
+
+/// The menu bar icon, plus the one place PawGuard can act at launch.
+///
+/// PawGuard is an agent app with no Dock icon and no main window, so without
+/// this a first run is completely silent.
+private struct MenuBarLabel: View {
+    let isLocked: Bool
+    /// Returns true exactly once, the first time setup is due.
+    let shouldOfferSetup: () -> Bool
+
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Label("PawGuard", systemImage: isLocked ? "lock.fill" : "pawprint.fill")
+            .task {
+                guard shouldOfferSetup() else { return }
+                openWindow(id: "setup")
+                NSApp.activate(ignoringOtherApps: true)
+            }
     }
 }

@@ -1,7 +1,17 @@
 import AppKit
 import ApplicationServices
 
-final class AccessibilityManager {
+/// The permission surface the watcher depends on, so its state machine can be
+/// tested without touching the real TCC database.
+protocol AccessibilityGranting: AnyObject {
+    var isTrusted: Bool { get }
+    func requestAccess()
+    func openSettings()
+    func relaunch()
+    func resetAccess(completion: @escaping (Bool) -> Void)
+}
+
+final class AccessibilityManager: AccessibilityGranting {
     var isTrusted: Bool {
         AXIsProcessTrusted()
     }
@@ -15,6 +25,26 @@ final class AccessibilityManager {
     func openSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    /// Quits and reopens PawGuard.
+    ///
+    /// macOS decides whether a process may create an event tap when it asks,
+    /// and it does not always revisit that for a process that was already
+    /// running when the permission was granted — most reliably when the
+    /// permission was granted to an earlier build of the same bundle, which
+    /// leaves an entry that looks enabled in System Settings while every
+    /// `tapCreate` still fails. Nothing in-process clears that. A fresh launch
+    /// does, so PawGuard offers it rather than telling the user to do it.
+    func relaunch() {
+        guard let bundleURL = Bundle.main.bundleURL as URL? else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async {
+                NSApp.terminate(nil)
+            }
         }
     }
 

@@ -90,16 +90,21 @@ final class KeyboardPatternTests: XCTestCase {
         XCTAssertTrue(engine.state.isLocked)
     }
 
-    func testMonitoringTimerDoesNotEraseHeldKeysBeforeHoldMatures() {
+    /// The timer must keep reporting the keys it can see. An earlier bug had
+    /// the periodic evaluation clear the held-key set out from under the
+    /// detector, so a paw that had settled and stopped producing events
+    /// vanished between one tick and the next.
+    ///
+    /// Deliberately says nothing about *when* the lock lands: a settled
+    /// three-key contact is caught within a tick or two now, and pinning the
+    /// latency here would turn a state-keeping test into a tuning test.
+    func testMonitoringTimerDoesNotEraseHeldKeys() {
         let engine = makeEngine()
         for (index, key) in [3, 5, 4].enumerated() {
             _ = engine.process(makeSample(CGKeyCode(key), time: Double(index) * 0.02, type: .keyDown))
         }
-        for timerTimestamp in [0.25, 0.5] {
-            let result = engine.evaluateHeldKeys(at: timerTimestamp)
-            XCTAssertEqual(result.heldKeyCount, 3)
-            XCTAssertFalse(engine.state.isLocked)
-            XCTAssertEqual(engine.advance(at: timerTimestamp), .monitoring)
+        for timerTimestamp in [0.05, 0.1, 0.15] {
+            XCTAssertEqual(engine.evaluateHeldKeys(at: timerTimestamp).heldKeyCount, 3)
         }
         let matured = engine.evaluateHeldKeys(at: 0.8)
         XCTAssertEqual(matured.confidence, .cat)

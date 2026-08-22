@@ -11,6 +11,19 @@ settings:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_STYLE: Automatic
+    # Building straight from Xcode with no team set falls back to "Sign to Run
+    # Locally", which signs ad hoc. macOS binds an Accessibility grant to the
+    # designated requirement, and an ad-hoc requirement is the exact hash of
+    # that exact binary — so every rebuild silently voids the permission while
+    # System Settings goes on showing an enabled PawGuard row for the previous
+    # build. Signing with a development certificate makes the requirement name
+    # the bundle identifier and the certificate instead, both of which survive
+    # a rebuild.
+    #
+    # Set PAWGUARD_TEAM_ID to your team (see `make doctor`) before generating
+    # the project. Left unset this expands to nothing, which is exactly the
+    # previous behaviour, and `make run` still signs correctly either way.
+    DEVELOPMENT_TEAM: ${PAWGUARD_TEAM_ID}
 
 targets:
   PawGuard:

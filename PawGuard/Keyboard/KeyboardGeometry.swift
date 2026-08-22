@@ -161,6 +161,38 @@ enum KeyboardGeometry {
     private static let commonGamingKeys: Set<CGKeyCode> = [0, 1, 2, 12, 13, 14, 49]  // A S D Q W E Space
     private static let arrowKeys: Set<CGKeyCode> = [123, 124, 125, 126]
 
+    /// Keys a human genuinely leans on for seconds at a time: deleting back
+    /// through a line, scrolling, paging, running forward in a game, or holding
+    /// a punctuation key to rule off a line of dashes. A long hold on any of
+    /// these says nothing, whereas a long hold on a letter key is something
+    /// fingers essentially never do.
+    ///
+    /// Adding a key here only blinds the single-key resting signal. A paw
+    /// parked on one of them is still caught by the contact and cluster
+    /// signals, which is the right trade: those signals cost nothing in false
+    /// positives, and the resting signal is the one that has to stay silent
+    /// while somebody holds a key on purpose.
+    private static let commonlyHeldKeys: Set<CGKeyCode> =
+        arrowKeys
+        .union(commonGamingKeys)
+        .union([
+            51,  // Delete
+            117,  // Forward delete
+            115, 119,  // Home, End
+            116, 121,  // Page up, page down
+            48,  // Tab
+            36,  // Return
+            49,  // Space
+            // Punctuation people hold to repeat: rules, ellipses, separators.
+            27,  // Minus
+            24,  // Equal
+            47,  // Period
+            43,  // Comma
+            44,  // Slash
+            42,  // Backslash
+            50,  // Grave
+        ])
+
     /// Distance in key units below which two keys are treated as touching for
     /// single-linkage clustering. A cat's paw pad spans roughly two keys.
     static let clusterLinkDistance: Double = 1.85
@@ -239,10 +271,26 @@ enum KeyboardGeometry {
     /// True when the keys occupy a compact area consistent with a single paw.
     /// Replaces the old bounding-box test, which accepted sparse keys inside a
     /// wide rectangle and rejected four adjacent keys in one row.
+    ///
+    /// Two keys count when they are physically touching. A kitten's pad covers
+    /// two keys and no more, so a three-key floor here made the smallest real
+    /// contact invisible to every clustering signal at once. Two keys are much
+    /// weaker evidence than three, and the score reflects that in the ramps
+    /// rather than by refusing to see them.
     static func isTightCluster(_ keyCodes: Set<CGKeyCode>) -> Bool {
         let points = keyCodes.compactMap(position(for:))
-        guard points.count >= 3, let spread = spread(of: keyCodes) else { return false }
+        guard points.count >= 2, let spread = spread(of: keyCodes) else { return false }
+        if points.count == 2 { return spread <= DetectionRules.pawContactDistance }
         return spread <= 1.15 * Double(points.count).squareRoot()
+    }
+
+    /// True when two keys are close enough to sit under one paw pad at once.
+    static func isPawContact(_ first: CGKeyCode, _ second: CGKeyCode) -> Bool {
+        guard first != second,
+            let a = position(for: first),
+            let b = position(for: second)
+        else { return false }
+        return a.distance(to: b) <= DetectionRules.pawContactDistance
     }
 
     /// Groups keys into physically contiguous clusters using single linkage. A
@@ -278,8 +326,15 @@ enum KeyboardGeometry {
         return result.sorted { $0.count > $1.count }
     }
 
+    /// True when a human plausibly holds this key down for several seconds.
+    static func isCommonlyHeld(_ keyCode: CGKeyCode) -> Bool {
+        commonlyHeldKeys.contains(keyCode) || isModifier(keyCode) || functionRowKeys.contains(keyCode)
+    }
+
+    /// Holding a single W to run forward or a single arrow to scroll is as
+    /// intentional as holding the whole WASD cluster, so one key qualifies too.
     static func isLikelyIntentionalHold(_ keyCodes: Set<CGKeyCode>) -> Bool {
-        guard (2...4).contains(keyCodes.count) else { return false }
+        guard (1...4).contains(keyCodes.count) else { return false }
         return keyCodes.isSubset(of: commonGamingKeys) || keyCodes.isSubset(of: arrowKeys)
     }
 

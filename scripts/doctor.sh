@@ -73,6 +73,28 @@ else
     warn "Signing identity" "none; unsigned builds work, but Accessibility approval will not persist"
 fi
 
+# An Xcode build with no development team is signed ad hoc, and macOS binds an
+# Accessibility grant to the exact binary in that case. Every rebuild then voids
+# the permission while System Settings still lists an enabled PawGuard row for
+# the build before it, which looks exactly like the app ignoring the grant.
+XCODE_BUILD="$(find "$HOME/Library/Developer/Xcode/DerivedData" \
+    -maxdepth 5 -type d -name "$PAWGUARD_APP_NAME.app" 2>/dev/null | head -1)"
+if [ -n "$XCODE_BUILD" ]; then
+    if codesign -dvv "$XCODE_BUILD" 2>&1 | grep -q "flags=.*adhoc"; then
+        warn "Xcode build signature" \
+            "ad-hoc signed; Accessibility approval dies on every rebuild. Use 'make run', or set PAWGUARD_TEAM_ID and re-run 'make generate'"
+    else
+        pass "Xcode build signature" "stably signed; Accessibility approval survives rebuilds"
+    fi
+fi
+
+if [ -n "${PAWGUARD_TEAM_ID:-}" ]; then
+    pass "Development team" "$PAWGUARD_TEAM_ID"
+else
+    warn "Development team" \
+        "PAWGUARD_TEAM_ID is unset; builds made from Xcode itself will be ad-hoc signed"
+fi
+
 INSTALL_PATH="$PAWGUARD_INSTALL_DIR/$PAWGUARD_APP_NAME.app"
 if [ -d "$INSTALL_PATH" ]; then
     if pawguard_verify_app "$INSTALL_PATH"; then

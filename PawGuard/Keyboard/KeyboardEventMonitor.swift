@@ -2,13 +2,26 @@ import CoreGraphics
 import Foundation
 import os
 
+/// The part of the keyboard monitor that permission handling depends on.
+///
+/// A seam, so the state machine that decides what to tell the user about
+/// Accessibility can be tested without creating a real system-wide event tap.
+protocol KeyboardMonitoring: AnyObject {
+    var isRunning: Bool { get }
+    var isTapActive: Bool { get }
+    var lastStartError: String? { get }
+    @discardableResult func start() -> Bool
+    func stop()
+    func recover()
+}
+
 /// Owns the Core Graphics event tap.
 ///
 /// The tap runs on its own thread with its own run loop. On the main run loop
 /// every keystroke on the system would be dispatched behind SwiftUI rendering,
 /// so a slow frame delays input machine-wide and a slow enough one makes macOS
 /// disable the tap outright.
-final class KeyboardEventMonitor {
+final class KeyboardEventMonitor: KeyboardMonitoring {
     private let handler: (KeyboardEventSample) -> Bool
     private let interruptionHandler: () -> Void
     private let logger = Logger(subsystem: "com.pawguard.app", category: "keyboard")
@@ -27,6 +40,23 @@ final class KeyboardEventMonitor {
         stateLock.lock()
         defer { stateLock.unlock() }
         return running
+    }
+
+    /// Whether the tap is not merely created but still enabled.
+    ///
+    /// `isRunning` only says the thread came up and `tapCreate` returned a port.
+    /// macOS can disable that port afterwards — for a timeout, for user input,
+    /// or when a permission is revoked underneath a running process — and the
+    /// port stays non-nil the whole time. Anything reporting protection status
+    /// has to ask this, or it will keep claiming to be watching a keyboard it
+    /// no longer sees.
+    var isTapActive: Bool {
+        stateLock.lock()
+        let tap = eventTap
+        let isRunning = running
+        stateLock.unlock()
+        guard isRunning, let tap else { return false }
+        return CGEvent.tapIsEnabled(tap: tap)
     }
 
     var lastStartError: String? {
@@ -48,14 +78,18 @@ final class KeyboardEventMonitor {
         if isRunning { return true }
 
         let ready = DispatchSemaphore(value: 0)
-        var succeeded = false
+        // Written on the tap thread, read here after the semaphore. A captured
+        // local `var` would be a data race whatever the ordering, so the result
+        // travels through a box both sides agree on.
+        let outcome = StartOutcome()
 
         let thread = Thread { [weak self] in
             guard let self else {
                 ready.signal()
                 return
             }
-            succeeded = self.installTap()
+            let succeeded = self.installTap()
+            outcome.succeeded = succeeded
             self.stateLock.lock()
             self.tapRunLoop = CFRunLoopGetCurrent()
             self.running = succeeded
@@ -73,8 +107,14 @@ final class KeyboardEventMonitor {
         thread.start()
         ready.wait()
 
+        let succeeded = outcome.succeeded
         if !succeeded { self.thread = nil }
         return succeeded
+    }
+
+    /// Carries `installTap`'s result off the tap thread.
+    private final class StartOutcome {
+        var succeeded = false
     }
 
     func stop() {

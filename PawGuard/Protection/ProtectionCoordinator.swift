@@ -33,11 +33,19 @@ final class ProtectionCoordinator: ObservableObject {
     private var pendingBlockedEvents = 0
     private var testOverlayEnd: Date?
     private var contextTickCounter = 0
+    private var probeTickCounter = 0
 
     /// The physical key probe and the context probe do not need to run at the
     /// full tick rate.
-    private static let tickInterval: TimeInterval = 0.25
-    private static let contextTickDivisor = 4
+    ///
+    /// The tick itself is fast — re-scoring a handful of held keys — but
+    /// probing the window server walks every key code on the keyboard, and
+    /// reading the frontmost app is slower still. Running those on divisors
+    /// keeps the cost per second where it was at the old quarter-second tick
+    /// while detection latency drops with the tick.
+    private static let tickInterval: TimeInterval = DetectionRules.monitorTick
+    private static let probeTickDivisor = 3
+    private static let contextTickDivisor = 10
 
     init(
         settingsStore: SettingsStore,
@@ -246,7 +254,8 @@ final class ProtectionCoordinator: ObservableObject {
         )
 
         let now = MonotonicClock.now
-        if monitor.isRunning {
+        probeTickCounter += 1
+        if monitor.isRunning, probeTickCounter.isMultiple(of: Self.probeTickDivisor) {
             // Ground truth beats inference: this catches key-ups lost while the
             // tap was disabled and a paw that was already resting on the keys.
             engine.reconcileHeldKeys(with: PhysicalKeyboardState.pressedNonModifierKeys(), at: now)

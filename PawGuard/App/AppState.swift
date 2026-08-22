@@ -56,7 +56,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    var accessibilityManager: AccessibilityManager { accessibility.manager }
+    var accessibilityManager: AccessibilityGranting { accessibility.manager }
 
     // MARK: - Protection
 
@@ -80,9 +80,12 @@ final class AppState: ObservableObject {
     var isResettingAccessibility: Bool { accessibility.isResetting }
     var accessibilityResetMessage: String? { accessibility.resetMessage }
     var accessibilityRepairNeeded: Bool { accessibility.repairNeeded }
+    var accessibilityStage: AccessibilityStage { accessibility.stage }
 
     func refreshAccessibility() { accessibility.refresh() }
     func requestAccessibility() { accessibility.requestAccess() }
+    func openAccessibilitySettings() { accessibilityManager.openSettings() }
+    func relaunchForAccessibility() { accessibility.relaunch() }
 
     func resetAccessibilityPermission() {
         accessibility.resetPermission { [weak self] in
@@ -96,6 +99,19 @@ final class AppState: ObservableObject {
 
     var needsOnboarding: Bool {
         !settingsStore.settings.hasCompletedOnboarding || activeCat == nil
+    }
+
+    /// Whether setup still has to be put in front of the user at launch.
+    ///
+    /// Lives here rather than in the menu bar label's own state because SwiftUI
+    /// may rebuild that label at any time; a flag stored there would reset with
+    /// it and pull the window back in front of whatever the user was doing.
+    private var hasOfferedSetup = false
+
+    func shouldOfferSetupOnLaunch() -> Bool {
+        guard !hasOfferedSetup, needsOnboarding else { return false }
+        hasOfferedSetup = true
+        return true
     }
 
     /// True while macOS secure input is on. No event tap receives key events in

@@ -29,7 +29,8 @@ final class TraceReplayTests: XCTestCase {
     {
         let detector = CatDetector(threshold: threshold)
         var outcome = ReplayOutcome()
-        var nextTick = (samples.first?.timestamp ?? 0) + 0.25
+        let tick = DetectionRules.monitorTick
+        var nextTick = (samples.first?.timestamp ?? 0) + tick
 
         func record(_ result: DetectionResult, at time: TimeInterval) {
             outcome.peakScore = max(outcome.peakScore, result.score)
@@ -42,7 +43,7 @@ final class TraceReplayTests: XCTestCase {
         for sample in samples {
             while nextTick < sample.timestamp {
                 record(detector.evaluate(at: nextTick), at: nextTick)
-                nextTick += 0.25
+                nextTick += tick
             }
             record(detector.process(sample), at: sample.timestamp)
         }
@@ -51,7 +52,7 @@ final class TraceReplayTests: XCTestCase {
         let end = (samples.last?.timestamp ?? 0) + 2
         while nextTick <= end {
             record(detector.evaluate(at: nextTick), at: nextTick)
-            nextTick += 0.25
+            nextTick += tick
         }
         return outcome
     }
@@ -209,6 +210,126 @@ final class TraceReplayTests: XCTestCase {
         let combined = replay(typing + paw)
         XCTAssertTrue(combined.detected)
         XCTAssertGreaterThanOrEqual(combined.detectionTime ?? 0, handoff)
+    }
+
+    /// The case that started all this: a kitten stands on one key and it types
+    /// itself across the screen. The old model measured only how long the key
+    /// had been down, on a ramp that took a dozen seconds to become decisive —
+    /// several hundred characters of damage. Counting the autorepeats instead
+    /// catches it while the mess is still a line or two.
+    func testAKeyLeftDownIsCaughtWhileTheDamageIsStillSmall() {
+        for key in [38, 5, 8, 34] as [CGKeyCode] {
+            let outcome = replay(TraceGenerator.heldKeyWithAutorepeat(key, duration: 20))
+            XCTAssertTrue(outcome.detected, "key \(key): a letter held for twenty seconds is not typing")
+            let latency = outcome.detectionTime ?? .infinity
+            XCTAssertLessThan(latency, 4, "key \(key) took \(latency)s, long enough to fill a line")
+        }
+    }
+
+    /// Holding a key to repeat it is a real thing people do, and while they are
+    /// doing it, it is genuinely indistinguishable from a resting paw. Two
+    /// separate protections cover it, and both are tested here: the punctuation
+    /// people rule off lines with never carries resting evidence at all, and a
+    /// stretched letter has to outlast any stretch somebody types on purpose.
+    func testHoldingAKeyToRepeatItStaysSilent() {
+        // "-----", ".....", ",,,,," — held far past anything a cat would need.
+        for key in [27, 43, 47, 24, 44] as [CGKeyCode] {
+            let outcome = replay(TraceGenerator.heldKeyWithAutorepeat(key, duration: 10))
+            XCTAssertFalse(outcome.detected, "key \(key) triggered (peak \(outcome.peakScore))")
+        }
+        // "noooooo" — a letter stretched about as far as anyone stretches one.
+        for duration in [0.6, 0.9, 1.2, 1.5] {
+            let outcome = replay(TraceGenerator.heldKeyWithAutorepeat(31, duration: duration))
+            XCTAssertFalse(outcome.detected, "\(duration)s stretch triggered (peak \(outcome.peakScore))")
+        }
+    }
+
+    /// A kitten's pad covers two keys and no more. Every clustering signal used
+    /// to need three, so the smallest real contact there is scored 53 at its
+    /// peak and was never caught at any sensitivity.
+    func testAKittenPawOnTwoAdjacentKeysIsCaught() {
+        for anchor in [4, 40, 8, 15, 34, 17] as [CGKeyCode] {
+            let samples = TraceGenerator.kittenPaw(anchor: anchor, keyCount: 2, hold: 4)
+            let outcome = replay(samples)
+            XCTAssertTrue(outcome.detected, "anchor \(anchor) missed (peak \(outcome.peakScore))")
+            let latency = outcome.detectionTime ?? .infinity
+            XCTAssertLessThan(latency, 1.5, "anchor \(anchor) took \(latency)s")
+        }
+    }
+
+    func testAKittenCrossingTheKeyboardIsCaught() {
+        var missed: [String] = []
+        for seed in UInt64(1)...UInt64(12) {
+            let outcome = replay(TraceGenerator.kittenWalk(seed: seed))
+            if !outcome.detected { missed.append("seed \(seed) peak \(outcome.peakScore)") }
+        }
+        // Not every wander is catchable — a few touches far enough apart are a
+        // shape typing also makes — but the great majority must be.
+        XCTAssertLessThanOrEqual(missed.count, 3, "missed \(missed)")
+    }
+
+    /// The hardest human pattern to tell from a cat padding across the keys:
+    /// one key at a time, each held long enough to autorepeat. Counting those
+    /// holds as paw touches on their own turned every one of these into a
+    /// lockout, which is why a lone key only counts when the touch beside it in
+    /// time landed within a paw's reach.
+    func testSlowDeliberateTypingNeverTriggers() {
+        guard let sensitive = SensitivityPreset.sensitive.threshold else {
+            return XCTFail("sensitive preset must define a threshold")
+        }
+        for holds in [0.25...0.45, 0.40...0.70] {
+            for seed in UInt64(1)...UInt64(15) {
+                let samples = TraceGenerator.deliberateTyping(seed: seed, keyCount: 90, holdRange: holds)
+                let outcome = replay(samples, threshold: sensitive)
+                XCTAssertFalse(
+                    outcome.detected,
+                    "holds \(holds) seed \(seed) triggered (peak \(outcome.peakScore))"
+                )
+            }
+        }
+    }
+
+    func testLongHoldsOnKeysPeopleLeanOnNeverTrigger() {
+        // Delete, arrows, space, and a movement key, each held far past any
+        // threshold a resting paw would cross.
+        for key in [51, 123, 124, 125, 126, 49, 13, 48, 36] as [CGKeyCode] {
+            let outcome = replay(TraceGenerator.heldKeyWithAutorepeat(key, duration: 30))
+            XCTAssertFalse(outcome.detected, "key \(key) triggered (peak \(outcome.peakScore))")
+        }
+    }
+
+    /// The score is a graded scale again, not a rail pinned at 100.
+    ///
+    /// Under the old clamped sum an ordinary four-key impact already summed
+    /// past 100, so `immediateScore` — meant for evidence beyond anything a
+    /// human produces — was the common case and the confirmation window was
+    /// skipped for most detections.
+    func testOrdinaryPawImpactsLeaveRoomForTheConfirmationWindow() {
+        var immediate = 0
+        var total = 0
+        for anchor in [3, 13, 40, 8, 32, 46, 15] as [CGKeyCode] {
+            for keyCount in 3...5 {
+                let keys = Set(TraceGenerator.pawKeys(anchor: anchor, count: keyCount))
+                if KeyboardGeometry.isLikelyIntentionalHold(keys) { continue }
+                let outcome = replay(TraceGenerator.pawImpact(anchor: anchor, keyCount: keyCount, seed: 1, startTime: 0))
+                total += 1
+                if outcome.peakScore >= DetectionRules.immediateScore { immediate += 1 }
+            }
+        }
+        XCTAssertGreaterThan(total, 15)
+        XCTAssertLessThan(
+            Double(immediate) / Double(total),
+            0.5,
+            "most detections should still go through the confirmation window"
+        )
+    }
+
+    /// Evidence still has somewhere to go above an ordinary impact: a cat lying
+    /// across the keyboard must outscore a single paw touching down.
+    func testMoreEvidenceScoresHigherThanLess() {
+        let smallImpact = replay(TraceGenerator.pawImpact(anchor: 13, keyCount: 3, seed: 1, startTime: 0)).peakScore
+        let wholeCat = replay(TraceGenerator.catSitting(seed: 1, startTime: 0)).peakScore
+        XCTAssertLessThan(smallImpact, wholeCat, "a three-key touch and a whole cat must not score the same")
     }
 
     func testSensitivePresetDoesNotBreakHumanTyping() {

@@ -178,7 +178,10 @@ final class KeyboardEngine {
         guard case .monitoring = protectionManager.state else { return .empty }
         let result = detector.evaluate(at: timestamp)
         onDetectionUpdated?(result)
-        guard result.heldKeyCount >= 3, result.confidence == .cat, !protectionSuppressed else {
+        // The score is the real guard here. A count gate used to sit in front of
+        // it, which meant a paw resting on one or two keys could never be acted
+        // on from the timer no matter how long it stayed there.
+        guard result.heldKeyCount >= 1, result.confidence == .cat, !protectionSuppressed else {
             return result
         }
         commitLock(with: result)

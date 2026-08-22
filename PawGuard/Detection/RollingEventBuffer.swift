@@ -4,7 +4,7 @@ struct RollingEventBuffer {
     private(set) var samples: [KeyboardEventSample] = []
     let duration: TimeInterval
 
-    init(duration: TimeInterval = DetectionRules.generalWindow) {
+    init(duration: TimeInterval = DetectionRules.bufferWindow) {
         self.duration = duration
     }
 

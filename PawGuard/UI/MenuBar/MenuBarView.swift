@@ -8,6 +8,23 @@ struct MenuBarView: View {
         PawGuardStyle.accent(for: appState.settingsStore.settings.accentTheme)
     }
 
+    private var repairMessage: String {
+        switch appState.accessibilityStage {
+        case .needsRelaunch:
+            return "Permission is granted, but this launch cannot watch the keyboard. Relaunch to fix it."
+        case .ready:
+            return "Keyboard monitoring is unavailable."
+        case .awaitingGrant:
+            return appState.accessibilityEnabled
+                ? "Starting keyboard monitoring…"
+                : "Waiting for Accessibility permission."
+        case .unstableSignature:
+            return "This ad-hoc build cannot keep Accessibility permission across rebuilds. Run a signed build."
+        case .notGranted:
+            return "Accessibility permission is required."
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -48,16 +65,19 @@ struct MenuBarView: View {
             }
 
             if appState.accessibilityRepairNeeded {
-                Label(
-                    appState.accessibilityEnabled
-                        ? "Keyboard monitoring is unavailable for this build."
-                        : "Accessibility permission is required.", systemImage: "exclamationmark.triangle"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .padding(.top, 14)
-                Button("Repair Accessibility") {
-                    appState.requestAccessibility()
+                Label(repairMessage, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 14)
+                // A stale grant cannot be repaired from inside this process, so
+                // offering "Repair" for it would just fail quietly.
+                Button(appState.accessibilityStage == .needsRelaunch ? "Relaunch PawGuard" : "Repair Accessibility") {
+                    if appState.accessibilityStage == .needsRelaunch {
+                        appState.relaunchForAccessibility()
+                    } else {
+                        appState.requestAccessibility()
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

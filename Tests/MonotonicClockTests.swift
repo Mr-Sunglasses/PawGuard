@@ -52,6 +52,8 @@ final class MonotonicClockTests: XCTestCase {
         XCTAssertLessThan(DetectionRules.synchronyWindow, DetectionRules.simultaneousWindow)
         XCTAssertLessThan(DetectionRules.simultaneousWindow, DetectionRules.fastBurstWindow)
         XCTAssertLessThan(DetectionRules.fastBurstWindow, DetectionRules.generalWindow)
-        XCTAssertLessThan(DetectionRules.graceWindow, DetectionRules.holdThreshold)
+        XCTAssertLessThan(DetectionRules.graceWindow, DetectionRules.pairContactRampStart)
+        XCTAssertLessThan(DetectionRules.generalWindow, DetectionRules.contactWindow)
+        XCTAssertGreaterThanOrEqual(DetectionRules.bufferWindow, DetectionRules.contactWindow)
     }
 }
