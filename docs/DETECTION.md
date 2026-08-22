@@ -111,9 +111,9 @@ Crossing the threshold does not lock the keyboard outright. Borderline evidence 
 
 Being wrong therefore costs a barely perceptible delay instead of a locked keyboard, which is what allows the thresholds to sit where they do. Evidence beyond anything a human produces (a score of 95 or more) skips the window entirely — in practice a cat settling its weight across two separate patches of keyboard, not a single paw touching down. The window can be turned off in Settings.
 
-## Held-key ground truth
+## Held-key tracking
 
-The engine re-evaluates held keys every tenth of a second, so a paw that has settled and stopped producing events is acted on within a tick rather than within a quarter second. Three times slower than that, it reads which keys are physically down from `CGEventSource.keyState` and reconciles the inferred set against it. This catches a paw already resting on the keyboard before PawGuard started, and drops keys whose key-up was lost while the tap was disabled. Holds older than 30 seconds with no corroboration expire on their own.
+The engine re-evaluates held keys every tenth of a second, so a paw that has settled and stopped producing events is acted on within a tick rather than within a quarter second. When an event tap is interrupted or disabled, the detection state and held keys are safely reset, and uncorroborated stale holds older than 30 seconds expire on their own.
 
 ## Releasing what applications already saw
 
