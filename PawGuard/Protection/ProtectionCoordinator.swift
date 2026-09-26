@@ -17,6 +17,9 @@ final class ProtectionCoordinator: ObservableObject {
     /// Keystrokes the cat landed before protection engaged, available to undo
     /// while the overlay is up.
     @Published private(set) var undoableKeystrokes = 0
+    /// When a pause the user asked for ends. `.distantFuture` means until they
+    /// resume it themselves.
+    @Published private(set) var pausedUntil: Date?
 
     let engine: KeyboardEngine
     let monitor: KeyboardEventMonitor
@@ -27,7 +30,13 @@ final class ProtectionCoordinator: ObservableObject {
     private let overlayController = CatOverlayController()
     private let profileProvider: () -> CatProfile?
 
-    private var timer: Timer?
+    /// `nonisolated(unsafe)`, like `appNapActivity`, only so the nonisolated
+    /// `deinit` can release it. Both are written once, in `init`.
+    nonisolated(unsafe) private var timer: Timer?
+    /// Held for the coordinator's lifetime to keep App Nap away. A napping
+    /// agent app has its timers coalesced by seconds at a time, and this tick
+    /// is what resolves grace windows and matures a paw that has gone still.
+    nonisolated(unsafe) private let appNapActivity: NSObjectProtocol
     private var protectionStartedAt: Date?
     private var lockStartedAt: Date?
     private var pendingBlockedEvents = 0
@@ -42,6 +51,22 @@ final class ProtectionCoordinator: ObservableObject {
     private static let tickInterval: TimeInterval = DetectionRules.monitorTick
     private static let contextTickDivisor = 10
 
+    /// How a lock ended, as far as calibration and statistics are concerned.
+    private enum LockOutcome {
+        /// The lock ran its course: the detection stood.
+        case ranItsCourse
+        /// The user dismissed it after dealing with the cat: it stood too.
+        case dismissed
+        /// The user said it was them: PawGuard was wrong.
+        case falseAlarm
+        /// The emergency shortcut. Wrong if it came moments after the lock,
+        /// otherwise says nothing either way.
+        case emergencyUnlock
+        /// Ended for a reason unrelated to the detection, such as a pause or
+        /// permission loss. Teaches nothing.
+        case abandoned
+    }
+
     init(
         settingsStore: SettingsStore,
         statisticsStore: StatisticsStore,
@@ -52,6 +77,10 @@ final class ProtectionCoordinator: ObservableObject {
         self.statisticsStore = statisticsStore
         self.calibrationStore = calibrationStore
         self.profileProvider = profileProvider
+        appNapActivity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "PawGuard resolves keyboard protection on a short timer."
+        )
 
         let settings = settingsStore.settings
         let engine = KeyboardEngine(
@@ -80,19 +109,30 @@ final class ProtectionCoordinator: ObservableObject {
             Task { @MainActor [weak self] in self?.pendingBlockedEvents += 1 }
         }
         engine.onEmergencyUnlock = { [weak self] in
-            Task { @MainActor [weak self] in self?.completeManualUnlock(userInitiated: true) }
+            Task { @MainActor [weak self] in self?.finishLock(.emergencyUnlock) }
         }
 
-        timer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
+        // `.common`, not the default mode: a timer left in the default mode
+        // stops firing while any of PawGuard's own controls is tracking the
+        // mouse, and grace windows and held-key evaluation stall with it.
+        let timer = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.tick() }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     deinit {
         timer?.invalidate()
+        ProcessInfo.processInfo.endActivity(appNapActivity)
     }
 
     var isLocked: Bool { protectionState.isLocked }
+
+    var isPaused: Bool {
+        guard let pausedUntil else { return false }
+        return pausedUntil > .now
+    }
 
     // MARK: - Actions
 
@@ -109,14 +149,38 @@ final class ProtectionCoordinator: ObservableObject {
             isTest: true,
             undoableKeystrokes: 0,
             onUnlock: { [weak self] in self?.dismissTestOverlay() },
-            onUndo: {}
+            onUndo: {},
+            onFalseAlarm: {}
         )
     }
 
+    /// Ends a lock the user has dealt with. The detection stood.
     func unlockNow() {
         guard isLocked else { return }
         engine.unlock()
-        completeManualUnlock(userInitiated: true)
+        finishLock(.dismissed)
+    }
+
+    /// Ends a lock the user says was not the cat.
+    func reportFalseAlarm() {
+        guard isLocked else { return }
+        engine.unlock()
+        finishLock(.falseAlarm)
+    }
+
+    /// Stops protecting for `duration`, or until `resume()` when nil.
+    func pause(for duration: TimeInterval?) {
+        pausedUntil = duration.map { Date().addingTimeInterval($0) } ?? .distantFuture
+        if isLocked {
+            engine.unlock()
+            finishLock(.abandoned)
+        }
+        syncEngine()
+    }
+
+    func resume() {
+        pausedUntil = nil
+        syncEngine()
     }
 
     func dismissTestOverlay() {
@@ -138,9 +202,7 @@ final class ProtectionCoordinator: ObservableObject {
     }
 
     func teardownForPermissionLoss() {
-        if engine.state.isLocked {
-            completeManualUnlock(userInitiated: false)
-        }
+        finishLock(.abandoned)
         engine.reset()
         protectionState = .monitoring
         currentDetection = .empty
@@ -155,7 +217,10 @@ final class ProtectionCoordinator: ObservableObject {
         if result.score != currentDetection.score || result.confidence != currentDetection.confidence {
             currentDetection = result
         }
-        if settingsStore.settings.adaptiveCalibration {
+        // Only what looked human is evidence of how the user types. Anything
+        // that crossed the threshold is either the cat or about to be judged,
+        // and the calibration store discards the lead-up to every detection.
+        if settingsStore.settings.adaptiveCalibration, result.confidence != .cat {
             calibrationStore.observe(result.features)
         }
     }
@@ -187,21 +252,41 @@ final class ProtectionCoordinator: ObservableObject {
             isTest: false,
             undoableKeystrokes: undoableKeystrokes,
             onUnlock: { [weak self] in self?.unlockNow() },
-            onUndo: { [weak self] in self?.undoCatTyping() }
+            onUndo: { [weak self] in self?.undoCatTyping() },
+            onFalseAlarm: { [weak self] in self?.reportFalseAlarm() }
         )
     }
 
-    /// A lock the user kills within seconds was a false positive; one that runs
-    /// its course stood. Both are free labels for calibration.
-    private func completeManualUnlock(userInitiated: Bool) {
+    /// The one place a lock is wrapped up, however it ended.
+    ///
+    /// An emergency unlock reaches here twice — once from its own callback and
+    /// once from the tick that notices the lock is gone — in whichever order
+    /// the main actor runs them. The first records the outcome and clears
+    /// `protectionStartedAt`; the second finds nothing left to record and only
+    /// tidies the UI.
+    private func finishLock(_ outcome: LockOutcome) {
+        let lockAge = lockStartedAt.map { Date().timeIntervalSince($0) }
         if let started = protectionStartedAt {
             statisticsStore.recordProtectionDuration(Date().timeIntervalSince(started))
-        }
-        if userInitiated, settingsStore.settings.adaptiveCalibration, let lockStartedAt {
-            let elapsed = Date().timeIntervalSince(lockStartedAt)
-            if elapsed <= CalibrationStore.falsePositiveWindow {
-                calibrationStore.recordFalsePositive()
-                statisticsStore.recordFalsePositive(wasCat: false)
+
+            let wasMistaken: Bool?
+            switch outcome {
+            case .ranItsCourse, .dismissed:
+                wasMistaken = false
+            case .falseAlarm:
+                wasMistaken = true
+            case .emergencyUnlock:
+                wasMistaken = (lockAge ?? .infinity) <= CalibrationStore.falsePositiveWindow ? true : nil
+            case .abandoned:
+                wasMistaken = nil
+            }
+            if wasMistaken == true { statisticsStore.recordFalseAlarm() }
+            if settingsStore.settings.adaptiveCalibration, let wasMistaken {
+                if wasMistaken {
+                    calibrationStore.recordFalsePositive()
+                } else {
+                    calibrationStore.recordConfirmedDetection()
+                }
             }
         }
         protectionStartedAt = nil
@@ -230,23 +315,11 @@ final class ProtectionCoordinator: ObservableObject {
         if contextTickCounter.isMultiple(of: Self.contextTickDivisor) {
             context = DetectionContextProbe.current()
         }
+        if let pausedUntil, pausedUntil <= .now {
+            self.pausedUntil = nil
+        }
 
-        let settings = settingsStore.settings
-        let suppressed = context.isProtectionSuppressed(
-            disabledBundleIdentifiers: settings.disabledBundleIdentifiers,
-            pauseInFullscreen: settings.pauseInFullscreen
-        )
-        engine.update(
-            threshold: calibrationStore.effectiveThreshold(
-                base: settings.detectionThreshold,
-                adaptive: settings.adaptiveCalibration
-            ),
-            extendOnActivity: settings.extendOnActivity,
-            lockDuration: settings.lockDuration,
-            graceEnabled: settings.useGraceWindow,
-            protectionSuppressed: suppressed,
-            allowedKeySets: settings.adaptiveCalibration ? calibrationStore.allowedKeySets : []
-        )
+        syncEngine()
 
         let now = MonotonicClock.now
         engine.evaluateHeldKeys(at: now)
@@ -282,18 +355,32 @@ final class ProtectionCoordinator: ObservableObject {
                 overlayController.dismiss()
             }
         } else if wasLocked {
-            if let started = protectionStartedAt {
-                statisticsStore.recordProtectionDuration(Date().timeIntervalSince(started))
-            }
-            // The lock ran to completion, so the detection stood.
-            if settingsStore.settings.adaptiveCalibration {
-                calibrationStore.recordConfirmedDetection()
-            }
-            protectionStartedAt = nil
-            lockStartedAt = nil
-            undoableKeystrokes = 0
-            overlayController.dismiss()
-            overlayRemaining = 0
+            // Unlocks from the UI update `protectionState` synchronously, so a
+            // lock this tick sees end either expired or was ended with the
+            // emergency shortcut, whose own callback may not have run yet.
+            finishLock(engine.lastLockEnding == .emergencyUnlock ? .emergencyUnlock : .ranItsCourse)
         }
+    }
+
+    /// Pushes current settings, calibration, and suppression into the engine.
+    private func syncEngine() {
+        let settings = settingsStore.settings
+        let suppressed =
+            isPaused
+            || context.isProtectionSuppressed(
+                disabledBundleIdentifiers: settings.disabledBundleIdentifiers,
+                pauseInFullscreen: settings.pauseInFullscreen
+            )
+        engine.update(
+            threshold: calibrationStore.effectiveThreshold(
+                base: settings.detectionThreshold,
+                adaptive: settings.adaptiveCalibration
+            ),
+            extendOnActivity: settings.extendOnActivity,
+            lockDuration: settings.lockDuration,
+            graceEnabled: settings.useGraceWindow,
+            protectionSuppressed: suppressed,
+            allowedKeySets: settings.adaptiveCalibration ? calibrationStore.allowedKeySets : []
+        )
     }
 }

@@ -5,8 +5,9 @@ struct PawGuardStats: Codable, Equatable {
     var blockedEventCount = 0
     var totalProtectionDuration: TimeInterval = 0
     var lastDetectionDate: Date?
-    var falsePositiveYesCount = 0
-    var falsePositiveNoCount = 0
+    /// Locks the user said were not the cat, or ended with the emergency
+    /// shortcut moments after they began.
+    var falseAlarmCount = 0
 }
 
 @MainActor
@@ -19,7 +20,7 @@ final class StatisticsStore: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: key),
-            let decoded = try? JSONDecoder().decode(PawGuardStats.self, from: data)
+            let decoded = LenientDecoding.decode(PawGuardStats.self, from: data, fallback: PawGuardStats())
         {
             stats = decoded
         } else {
@@ -33,10 +34,6 @@ final class StatisticsStore: ObservableObject {
         save()
     }
 
-    func recordBlockedEvent() {
-        recordBlockedEvents(1)
-    }
-
     func recordBlockedEvents(_ count: Int) {
         stats.blockedEventCount += max(0, count)
         save()
@@ -47,12 +44,8 @@ final class StatisticsStore: ObservableObject {
         save()
     }
 
-    func recordFalsePositive(wasCat: Bool) {
-        if wasCat {
-            stats.falsePositiveYesCount += 1
-        } else {
-            stats.falsePositiveNoCount += 1
-        }
+    func recordFalseAlarm() {
+        stats.falseAlarmCount += 1
         save()
     }
 

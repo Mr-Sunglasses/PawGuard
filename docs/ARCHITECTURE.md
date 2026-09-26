@@ -33,7 +33,7 @@ KeyboardEngine
 
 ### ProtectionCoordinator
 
-Owns the engine, the monitor, the overlay, and the quarter-second tick. Each tick reconciles held keys against the hardware, re-evaluates a possibly still paw, advances protection state, and drives the overlay countdown. It also records statistics and feeds the calibration store the outcome of each lock.
+Owns the engine, the monitor, the overlay, and the tenth-of-a-second tick, which runs in the common run-loop modes under a process activity that keeps App Nap away. Each tick re-evaluates a possibly still paw, advances protection state, and drives the overlay countdown. Every lock, however it ends, is wrapped up in one place that records statistics and feeds the calibration store its label. It also owns the user's temporary pause.
 
 ### AccessibilityWatcher
 
@@ -51,13 +51,11 @@ The monitor installs a session event tap for key-down, key-up, and modifier-stat
 
 `DetectionFeatures.extract` turns the rolling buffer and held-key set into named measurements — overlap, cluster shape, impact synchrony, hold durations, rhythm, hand alternation, sustained key rate. `CatDetector` scores those features with smooth ramps and the weights in `DetectionWeights`, producing a 0-100 score. Separating the two keeps the score readable and lets features be tested and logged on their own.
 
-### CatDetector
-
 ### KeyboardEngine and ProtectionManager
 
 `KeyboardEngine` is the decision boundary between detection and suppression, and the single point of serialization: `process` runs on the tap thread while the tick runs on the main actor, so the detector, the protection state, and all event bookkeeping sit behind one recursive lock.
 
-Borderline evidence opens a grace window instead of locking: input is withheld and buffered, and when the window closes the engine either commits to a lock or replays the buffered events. Overwhelming evidence skips the window. On locking, the engine synthesises key-ups for everything applications already saw, so nothing is left stuck down. The tick also re-evaluates three or more physically held keys, allowing a quiet paw rest to mature without relying on autorepeat.
+Borderline evidence opens a grace window instead of locking: input is withheld and buffered, and when the window closes the engine either commits to a lock or replays the buffered events. Overwhelming evidence skips the window. On locking, the engine synthesises key-ups for everything applications already saw, so nothing is left stuck down. The tick also re-evaluates held keys, allowing a quiet paw rest to mature without relying on autorepeat. A lock's deadline is also checked on the tap thread with every event, so a late tick can never hold the keyboard past it. The engine records how each lock ended — expired, emergency shortcut, or unlocked — so the coordinator labels it correctly whichever of its two paths notices first.
 
 `ProtectionManager` owns the thread-safe state machine — monitoring, grace, locked, cooldown — and controls lock expiry, manual unlock, and optional activity extension. Its wall clock is injectable, which is how the grace window is tested without waiting.
 
@@ -75,7 +73,7 @@ The overlay controller hosts a SwiftUI view inside a floating AppKit panel. It a
 
 | Data | Storage |
 | --- | --- |
-| Settings and onboarding state | `UserDefaults` |
+| Settings and onboarding state | `UserDefaults`, decoded leniently so fields added by a newer build take their defaults instead of discarding everything saved |
 | Cat profile metadata | `UserDefaults` |
 | Aggregate intervention statistics | `UserDefaults` |
 | Calibration profile and detection shapes | `UserDefaults`, key codes and scores only |

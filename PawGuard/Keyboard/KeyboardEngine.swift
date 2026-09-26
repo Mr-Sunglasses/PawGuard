@@ -9,6 +9,19 @@ struct ProtectionEvent {
     let deliveredKeystrokes: Int
 }
 
+/// How the most recent lock came to an end.
+///
+/// The coordinator learns about an emergency unlock through a hop to the main
+/// actor, and its own tick can observe the same lock ending first. Recording
+/// the reason here lets whichever of the two gets there first label the lock
+/// correctly, instead of the tick assuming every lock it sees end ran its
+/// course.
+enum LockEnding: Equatable {
+    case expired
+    case emergencyUnlock
+    case unlocked
+}
+
 /// Serialises detection, protection state, and event disposition.
 ///
 /// `process` runs on the event tap's thread while the monitoring timer runs on
@@ -42,8 +55,11 @@ final class KeyboardEngine {
     /// still held for the whole lock.
     private var deliveredKeys: [CGKeyCode: TimeInterval] = [:]
     private var deliveredModifiers: Set<CGKeyCode> = []
-    /// Recent delivered key-downs, for counting what an undo should remove.
-    private var deliveredHistory: [(timestamp: TimeInterval, keyCode: CGKeyCode)] = []
+    /// Recent delivered key-downs, autorepeats included, for counting what an
+    /// undo should remove. `producesText` is false for anything a backspace
+    /// cannot take back: Return, Delete, navigation, and shortcuts.
+    private var deliveredHistory: [(timestamp: TimeInterval, producesText: Bool)] = []
+    private var lockEnding: LockEnding?
     /// Key-downs withheld from applications; their key-ups must be withheld too
     /// or apps see a key release they never saw pressed.
     private var withheldKeys: Set<CGKeyCode> = []
@@ -52,6 +68,9 @@ final class KeyboardEngine {
 
     /// How far back a keystroke counts as part of the same cat episode.
     static let undoLookback: TimeInterval = 2.5
+    /// A key pressed with any of these runs a command or composes a character
+    /// (Option), so one backspace is not guaranteed to take it back.
+    private static let nonTextModifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate]
 
     init(
         threshold: Int,
@@ -104,18 +123,25 @@ final class KeyboardEngine {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        if isEmergencyUnlock(sample) && protectionManager.state.withholdsInput {
+        // A lock or cooldown that has run out ends here, on the tap thread,
+        // rather than waiting for the main actor's tick. The tick can be late —
+        // held off by a tracking loop or throttled by App Nap — and a keyboard
+        // must not stay locked past its deadline because of it.
+        let state = expireProtection()
+
+        if isEmergencyUnlock(sample) && state.withholdsInput {
             finishLock(replayWithheld: false)
             protectionManager.unlock(now: clock())
+            lockEnding = .emergencyUnlock
             detector.reset()
             onEmergencyUnlock?()
             return false
         }
 
-        switch protectionManager.state {
+        switch state {
         case .locked:
             if sample.type == .keyDown {
-                protectionManager.registerBlockedActivity(extend: extendOnActivity)
+                protectionManager.registerBlockedActivity(now: clock(), extend: extendOnActivity)
                 onBlockedActivity?()
             }
             withhold(sample)
@@ -138,7 +164,7 @@ final class KeyboardEngine {
             detector.reset()
             return deliver(sample)
 
-        case .monitoring, .suspicious:
+        case .monitoring:
             let result = detector.process(sample)
             onDetectionUpdated?(result)
 
@@ -188,14 +214,6 @@ final class KeyboardEngine {
         return result
     }
 
-    /// Replaces inferred held keys with what the hardware reports.
-    func reconcileHeldKeys(with physicalKeys: Set<CGKeyCode>, at timestamp: TimeInterval) {
-        stateLock.lock()
-        defer { stateLock.unlock() }
-        guard case .monitoring = protectionManager.state else { return }
-        detector.reconcileHeldKeys(with: physicalKeys, at: timestamp)
-    }
-
     func resetDetectionAfterMonitorInterruption() {
         stateLock.lock()
         detector.reset()
@@ -215,6 +233,7 @@ final class KeyboardEngine {
         let delivered = recentlyDeliveredKeystrokes()
         finishLock(replayWithheld: false)
         protectionManager.lockKeyboard(for: lockDuration, now: clock())
+        lockEnding = nil
         detector.reset()
         onCatDetected?(ProtectionEvent(result: result, deliveredKeystrokes: delivered))
     }
@@ -256,9 +275,18 @@ final class KeyboardEngine {
         graceBuffer.removeAll()
     }
 
+    /// How many backspaces would remove what the cat typed, or zero when no
+    /// number of them would.
+    ///
+    /// Every autorepeat is a character on screen, so repeats count. A Return,
+    /// a Delete, an arrow, or a shortcut in the episode means backspacing
+    /// cannot restore the text — it would delete the user's own words instead —
+    /// so undo is not offered at all.
     private func recentlyDeliveredKeystrokes() -> Int {
         guard let latest = deliveredHistory.last?.timestamp else { return 0 }
-        return deliveredHistory.filter { latest - $0.timestamp <= Self.undoLookback }.count
+        let episode = deliveredHistory.filter { latest - $0.timestamp <= Self.undoLookback }
+        guard episode.allSatisfy(\.producesText) else { return 0 }
+        return episode.count
     }
 
     /// Removes what the cat typed before protection engaged.
@@ -286,9 +314,12 @@ final class KeyboardEngine {
             } else {
                 if !sample.isRepeat {
                     deliveredKeys[sample.keyCode] = sample.timestamp
-                    deliveredHistory.append((sample.timestamp, sample.keyCode))
-                    if deliveredHistory.count > 256 { deliveredHistory.removeFirst() }
                 }
+                let producesText =
+                    KeyboardGeometry.isTextKey(sample.keyCode)
+                    && sample.modifiers.intersection(Self.nonTextModifiers).isEmpty
+                deliveredHistory.append((sample.timestamp, producesText))
+                if deliveredHistory.count > 256 { deliveredHistory.removeFirst() }
             }
         case .keyUp:
             deliveredKeys.removeValue(forKey: sample.keyCode)
@@ -313,18 +344,21 @@ final class KeyboardEngine {
 
     // MARK: - State
 
-    func lockForTest(duration: TimeInterval) {
-        stateLock.lock()
-        protectionManager.lockKeyboard(for: duration, now: clock())
-        stateLock.unlock()
-    }
-
     func unlock() {
         stateLock.lock()
         finishLock(replayWithheld: false)
         protectionManager.unlock(now: clock())
+        lockEnding = .unlocked
         detector.reset()
         stateLock.unlock()
+    }
+
+    /// How the most recent lock ended, or nil while one is in force or none
+    /// has happened yet.
+    var lastLockEnding: LockEnding? {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return lockEnding
     }
 
     func reset() {
@@ -352,8 +386,20 @@ final class KeyboardEngine {
             resolveGrace(commit: result.confidence == .cat)
         }
 
+        return expireProtection()
+    }
+
+    /// Moves an expired lock into cooldown and an expired cooldown back to
+    /// monitoring. Grace windows are left to their callers, which each know
+    /// what evidence the window should be judged on.
+    ///
+    /// Caller must hold `stateLock`.
+    private func expireProtection() -> ProtectionState {
         let previousState = protectionManager.state
         let state = protectionManager.advance(now: clock())
+        if case .locked = previousState, !state.isLocked {
+            lockEnding = .expired
+        }
         if case .cooldown = previousState, case .monitoring = state {
             detector.reset()
             withheldKeys.removeAll()

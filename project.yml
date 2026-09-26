@@ -9,6 +9,10 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    # Full data-race checking, reported as warnings under the Swift 5 language
+    # mode. The tap thread and the main actor share the engine and the
+    # monitor, which is exactly the code this is meant to keep honest.
+    SWIFT_STRICT_CONCURRENCY: complete
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_STYLE: Automatic
     # Building straight from Xcode with no team set falls back to "Sign to Run

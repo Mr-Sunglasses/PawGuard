@@ -21,6 +21,7 @@ final class CatOverlayController {
     private var undoableKeystrokes = 0
     private var unlockAction: (() -> Void)?
     private var undoAction: (() -> Void)?
+    private var falseAlarmAction: (() -> Void)?
 
     func show(
         profile: CatProfile?,
@@ -30,7 +31,8 @@ final class CatOverlayController {
         isTest: Bool,
         undoableKeystrokes: Int,
         onUnlock: @escaping () -> Void,
-        onUndo: @escaping () -> Void
+        onUndo: @escaping () -> Void,
+        onFalseAlarm: @escaping () -> Void
     ) {
         self.profile = profile
         self.remaining = remaining
@@ -40,6 +42,7 @@ final class CatOverlayController {
         self.undoableKeystrokes = undoableKeystrokes
         self.unlockAction = onUnlock
         self.undoAction = onUndo
+        self.falseAlarmAction = onFalseAlarm
         if !isTest && message == "Tiny paws detected." {
             message = CatMessage.detected(catName: profile?.displayName ?? "your cat")
         } else if isTest {
@@ -71,6 +74,7 @@ final class CatOverlayController {
         undoableKeystrokes = 0
         unlockAction = nil
         undoAction = nil
+        falseAlarmAction = nil
     }
 
     private func createPanel() {
@@ -104,7 +108,8 @@ final class CatOverlayController {
             isTest: isTest,
             undoableKeystrokes: undoableKeystrokes,
             onUnlock: { [weak self] in self?.unlockAction?() },
-            onUndo: { [weak self] in self?.undoAction?() }
+            onUndo: { [weak self] in self?.undoAction?() },
+            onFalseAlarm: { [weak self] in self?.falseAlarmAction?() }
         )
         if let hostingView {
             hostingView.rootView = view

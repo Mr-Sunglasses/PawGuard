@@ -48,7 +48,9 @@ final class AccessibilityWatcher: ObservableObject {
     var onMonitoringLost: (() -> Void)?
 
     private let monitor: KeyboardMonitoring
-    private var fallbackTimer: Timer?
+    /// `nonisolated(unsafe)` only so the nonisolated `deinit` can invalidate
+    /// it. It is written once, in `init`, on the main actor.
+    nonisolated(unsafe) private var fallbackTimer: Timer?
     private var observers: [Any] = []
 
     private static let fallbackInterval: TimeInterval = 2

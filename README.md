@@ -15,7 +15,8 @@ Everything runs locally. PawGuard observes only event timing, virtual key codes,
 - Stands down for full-screen games, apps you exclude, and secure input
 - Protections against fast human typing, shortcuts, key rollover, and common gaming holds
 - Personalized cat profile, local photos, theme, sensitivity, and lock duration
-- Multi-display, draggable protection overlay with mouse unlock and countdown
+- Multi-display protection overlay with mouse unlock, countdown, and an "It Was Me" button that teaches PawGuard
+- Unlock and pause (15 minutes, an hour, or until resumed) from the menu bar
 - Emergency unlock with `Control-Option-Command-Escape`
 - Explicit Accessibility repair and reset flow
 - No network services, analytics, typed-content storage, or machine-learning dependency
@@ -154,7 +155,9 @@ project.yml      XcodeGen source of truth
 
 ## Safety controls
 
-- Click **Unlock Now** in the overlay at any time.
+- Click **Unlock Now** in the overlay or **Unlock Keyboard** in the menu bar at any time.
+- Choose **It Was Me** when PawGuard locked on your own typing; it learns from that.
+- **Pause Protection** from the menu bar when you expect to trip it on purpose.
 - Press `Control-Option-Command-Escape` for emergency keyboard unlock.
 - Mouse and trackpad input remain active during protection.
 - A short cooldown follows every unlock to prevent immediate retriggering.

@@ -8,6 +8,12 @@ struct MenuBarView: View {
         PawGuardStyle.accent(for: appState.settingsStore.settings.accentTheme)
     }
 
+    private var statusColor: Color {
+        if appState.isLocked { return accent }
+        if !appState.keyboardMonitoringAvailable || appState.isManuallyPaused { return .orange }
+        return .green
+    }
+
     private var repairMessage: String {
         switch appState.accessibilityStage {
         case .needsRelaunch:
@@ -42,7 +48,7 @@ struct MenuBarView: View {
 
             HStack(spacing: 8) {
                 Circle()
-                    .fill(appState.isLocked ? accent : (appState.keyboardMonitoringAvailable ? .green : .orange))
+                    .fill(statusColor)
                     .frame(width: 8, height: 8)
                 Text(appState.statusTitle)
                     .font(.subheadline.weight(.semibold))
@@ -52,6 +58,22 @@ struct MenuBarView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 16)
+
+            // The overlay can be switched off, and the emergency shortcut is
+            // easy to forget, so the menu always offers a way out of a lock.
+            if appState.isLocked {
+                HStack(spacing: 8) {
+                    Button("Unlock Keyboard") { appState.unlockNow() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
+                    Button("It Was Me") { appState.reportFalseAlarm() }
+                        .buttonStyle(.bordered)
+                        .help("Unlocks the keyboard and teaches PawGuard that this was not your cat.")
+                }
+                .controlSize(.small)
+                .padding(.top, 12)
+                .padding(.leading, 16)
+            }
 
             Divider().padding(.vertical, 16)
 
@@ -93,6 +115,28 @@ struct MenuBarView: View {
             }
             .buttonStyle(.plain)
             .disabled(appState.isLocked)
+
+            if appState.isManuallyPaused {
+                Button {
+                    appState.resumeProtection()
+                } label: {
+                    Label("Resume Protection", systemImage: "play.circle")
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
+            } else {
+                Menu {
+                    Button("For 15 Minutes") { appState.pauseProtection(for: 15 * 60) }
+                    Button("For 1 Hour") { appState.pauseProtection(for: 60 * 60) }
+                    Button("Until I Resume") { appState.pauseProtection(for: nil) }
+                } label: {
+                    Label("Pause Protection", systemImage: "pause.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .padding(.top, 12)
+            }
 
             Button {
                 openWindow(id: "setup")

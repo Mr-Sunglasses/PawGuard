@@ -50,7 +50,7 @@ struct DetectionSettingsView: View {
             Section("Learning") {
                 Toggle("Adapt to how you type", isOn: $settings.settings.adaptiveCalibration)
                 Text(
-                    "Unlocking within a few seconds tells PawGuard it was wrong; letting a lock finish tells it it was right. Nothing leaves this Mac."
+                    "Choosing “It Was Me”, or using the emergency shortcut right after a lock, tells PawGuard it was wrong. Letting a lock finish or choosing Unlock Now tells it it was right. Nothing leaves this Mac."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

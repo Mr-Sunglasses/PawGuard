@@ -115,9 +115,19 @@ Being wrong therefore costs a barely perceptible delay instead of a locked keybo
 
 The engine re-evaluates held keys every tenth of a second, so a paw that has settled and stopped producing events is acted on within a tick rather than within a quarter second. When an event tap is interrupted or disabled, the detection state and held keys are safely reset, and uncorroborated stale holds older than 30 seconds expire on their own.
 
+An autorepeat for a key the detector is not tracking adopts that key as held. Its original press may have been withheld during a lock, swallowed by the cooldown reset, or made before monitoring started; either way a repeat is proof the key is down. Without this, a paw parked on one key through a lock streamed its repeats into the app indefinitely once the cooldown ended, because repeats alone never created a hold.
+
+## Lock lifetime
+
+A lock's deadline is checked on the tap thread with every key event, not only by the main-actor tick. The tick can be late — held off while one of PawGuard's own controls tracks the mouse, or throttled by App Nap — and the keyboard must not stay locked past its deadline because of it. The tick timer runs in the common run-loop modes, and the app holds a process activity that keeps App Nap from coalescing it.
+
 ## Releasing what applications already saw
 
 Keys delivered before protection engages would otherwise stay stuck down for the whole lock, because their key-ups are withheld along with everything else. On locking, PawGuard synthesises a key-up for every key an application saw go down, and for any modifier physically held at that moment. Conversely, a key-up whose key-down was withheld is withheld too, so no application sees a release it never saw pressed. Injected events carry a marker so PawGuard's own tap ignores them.
+
+## Undo
+
+The overlay offers to remove what the cat typed before protection engaged: every key-down that reached the app in the 2.5 seconds before the lock, autorepeats included, since each is a character on screen. Undo is only offered when every one of those keystrokes produced exactly one character. A Return, Tab, Delete, arrow, function key, or anything pressed with Command, Control, or Option cannot be taken back with a backspace — sending backspaces then would delete the user's own text — so in that case no undo is offered at all.
 
 ## Human-pattern protections
 
@@ -144,7 +154,9 @@ PawGuard suppresses protection entirely while a full-screen app is frontmost (op
 
 ## Learning from the user
 
-Dismissing a lock within six seconds is treated as a labelled false positive: the threshold offset rises, and a chord that has been wrong twice is added to a personal allowlist. Only chords of four keys or fewer are learnable, because an allowed set exempts every subset of itself — learning a wide one would quietly exempt a whole region of the keyboard, and any paw landing inside it. A lock that runs its course counts as confirmation and decays the offset back towards the user's own setting. Passive observation of how often this user genuinely overlaps three or more keys raises the bar for heavy rollers. Records contain key codes, scores, and signal names — never characters — and never leave the Mac. All of it can be reset in Settings.
+Locks are labelled by how they end. **It Was Me**, on the overlay or in the menu, is a false positive, and so is the emergency shortcut used within six seconds of the lock — somebody reaching for a four-key chord that fast was at the keyboard. A false positive raises the threshold offset, and a chord that has been wrong twice is added to a personal allowlist.
+
+A quick **Unlock Now** is deliberately not a false positive. Shooing the cat and clicking Unlock is how a correct lock usually ends, and reading it as a mistake made PawGuard less sensitive every time it worked. Unlock Now, and a lock that runs its course, both count as confirmation. Only chords of four keys or fewer are learnable, because an allowed set exempts every subset of itself — learning a wide one would quietly exempt a whole region of the keyboard, and any paw landing inside it. Confirmations decay the offset back towards the user's own setting. Passive observation of how often this user genuinely overlaps three or more keys raises the bar for heavy rollers. Observations wait five seconds before they count, and every detection discards the ones still waiting: a cat's first steps look exactly like heavy overlap, and letting them through taught PawGuard to ignore cats. Records contain key codes, scores, and signal names — never characters — and never leave the Mac. All of it can be reset in Settings.
 
 ## Sensitivity presets
 
@@ -168,6 +180,6 @@ Detection changes are measured, not argued about. `TraceReplayTests` replays who
 - Single-key holds are covered from both sides: a letter left down must be caught within four seconds, a letter stretched for effect for up to a second and a half must not, and delete, arrows, space, tab, return, the movement keys and the line-ruling punctuation must stay silent held for ten to thirty.
 - Kitten-sized contacts have their own cases, because they are what the three-key floor used to hide: two neighbouring keys held together must be caught within a second and a half at every anchor tried, and a cat crossing the keyboard in small local touches must be caught in the large majority of generated walks.
 
-The unit suite additionally covers the clock conversion, the geometry model, each extracted feature, the grace window in both directions, stuck-key release, undo counting, physical-state reconciliation, context gates, and calibration.
+The unit suite additionally covers the clock conversion, the geometry model, each extracted feature, the grace window in both directions, stuck-key release, lock expiry without the tick, autorepeat adoption, undo counting and its refusal cases, context gates, calibration, and reading settings saved by older builds.
 
 When changing score weights, add a positive cat-like case and a negative human-like case. A detector change is incomplete if it improves one side without protecting the other — the replay tests will say so either way.

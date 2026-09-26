@@ -156,6 +156,18 @@ enum KeyboardGeometry {
         34, 35, 37, 38, 39, 40, 41, 45, 46, 47,
     ]
 
+    /// Keys that insert exactly one character, so one backspace removes what
+    /// they typed: letters, digits, punctuation, Space, the ISO and JIS extras,
+    /// and the keypad's digits and operators. Return, Tab, Delete, Escape,
+    /// navigation, and function keys are deliberately absent.
+    private static let textKeys: Set<CGKeyCode> = Set(0...35)
+        .union(37...47)
+        .union([49, 50])  // Space, grave
+        .union([65, 67, 69, 75, 78, 81])  // Keypad . * + / - =
+        .union(82...89)  // Keypad 0-7
+        .union([91, 92])  // Keypad 8, 9
+        .union([93, 94, 95])  // JIS yen, underscore, keypad comma
+
     // These compact groups are commonly held intentionally for games and
     // navigation. A stable hold inside one of them should not look like a paw.
     private static let commonGamingKeys: Set<CGKeyCode> = [0, 1, 2, 12, 13, 14, 49]  // A S D Q W E Space
@@ -199,11 +211,15 @@ enum KeyboardGeometry {
 
     /// Overridable so tests can pin a layout. Reads the physical enclosure type
     /// once at first use.
-    static var layout: KeyboardLayoutType = .current {
+    ///
+    /// Unsynchronised on purpose: the app never writes it, and tests write it
+    /// only while no tap is running. Guarding every read would put a lock on
+    /// the tap thread's hot path for a value that never changes in production.
+    nonisolated(unsafe) static var layout: KeyboardLayoutType = .current {
         didSet { cachedPositions = buildPositions() }
     }
 
-    private static var cachedPositions: [CGKeyCode: KeyPoint] = buildPositions()
+    nonisolated(unsafe) private static var cachedPositions: [CGKeyCode: KeyPoint] = buildPositions()
 
     private static func buildPositions() -> [CGKeyCode: KeyPoint] {
         var positions = ansiPositions
@@ -224,6 +240,11 @@ enum KeyboardGeometry {
 
     static func isModifier(_ keyCode: CGKeyCode) -> Bool {
         modifierCodes.contains(keyCode)
+    }
+
+    /// True for a key whose press a single backspace takes back.
+    static func isTextKey(_ keyCode: CGKeyCode) -> Bool {
+        textKeys.contains(keyCode)
     }
 
     static func isKnownKey(_ keyCode: CGKeyCode) -> Bool {

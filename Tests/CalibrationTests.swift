@@ -5,8 +5,10 @@ import XCTest
 
 @MainActor
 final class CalibrationTests: XCTestCase {
-    private var defaults: UserDefaults!
-    private var suiteName = ""
+    // Written by the nonisolated `setUp` and `tearDown` XCTest calls around
+    // each main-actor test, never concurrently with one.
+    nonisolated(unsafe) private var defaults: UserDefaults!
+    nonisolated(unsafe) private var suiteName = ""
 
     override func setUp() {
         super.setUp()
@@ -115,14 +117,23 @@ final class CalibrationTests: XCTestCase {
         XCTAssertLessThan(store.profile.thresholdOffset, 5)
     }
 
+    /// Feeds one observation a second, then enough idle time for every one of
+    /// them to settle.
+    private func observe(_ features: DetectionFeatures, count: Int, into store: CalibrationStore, from start: Date) {
+        for index in 0..<count {
+            store.observe(features, at: start.addingTimeInterval(Double(index)))
+        }
+        var flush = DetectionFeatures()
+        flush.simultaneousCount = 0
+        store.observe(flush, at: start.addingTimeInterval(Double(count) + CalibrationStore.observationDelay))
+    }
+
     func testPassiveObservationRaisesTheBarForHeavyOverlappers() {
         let store = CalibrationStore(defaults: defaults)
         var features = DetectionFeatures()
         features.simultaneousCount = 3
         features.keyRate = 9
-        for _ in 0..<400 {
-            store.observe(features)
-        }
+        observe(features, count: 400, into: store, from: Date(timeIntervalSince1970: 0))
         XCTAssertGreaterThan(store.profile.thresholdOffset, 0)
     }
 
@@ -130,10 +141,38 @@ final class CalibrationTests: XCTestCase {
         let store = CalibrationStore(defaults: defaults)
         var features = DetectionFeatures()
         features.simultaneousCount = 1
-        for _ in 0..<400 {
-            store.observe(features)
-        }
+        observe(features, count: 400, into: store, from: Date(timeIntervalSince1970: 0))
         XCTAssertEqual(store.profile.thresholdOffset, 0)
+    }
+
+    /// A cat's first steps look like heavy overlap and arrive just before the
+    /// lock they cause. They must not teach PawGuard that the user overlaps a
+    /// lot, or every cat would make it less sensitive to cats.
+    func testObservationsLeadingUpToADetectionAreDiscarded() {
+        let store = CalibrationStore(defaults: defaults)
+        var heavy = DetectionFeatures()
+        heavy.simultaneousCount = 4
+        let start = Date(timeIntervalSince1970: 0)
+        for round in 0..<200 {
+            let roundStart = start.addingTimeInterval(Double(round) * 10)
+            for step in 0..<3 {
+                store.observe(heavy, at: roundStart.addingTimeInterval(Double(step) * 0.2))
+            }
+            store.recordDetection(detection(heldKeys: [3, 5, 4]))
+        }
+        observe(DetectionFeatures(), count: 1, into: store, from: start.addingTimeInterval(3_000))
+        XCTAssertEqual(store.profile.thresholdOffset, 0)
+    }
+
+    func testObservationsTooRecentToTrustAreNotCountedYet() {
+        let store = CalibrationStore(defaults: defaults)
+        var features = DetectionFeatures()
+        features.simultaneousCount = 3
+        let now = Date(timeIntervalSince1970: 0)
+        for _ in 0..<CalibrationStore.calibrationBatchSize {
+            store.observe(features, at: now)
+        }
+        XCTAssertEqual(store.profile.thresholdOffset, 0, "nothing settles until the delay has passed")
     }
 
     func testHistoryIsCappedAndPersisted() {

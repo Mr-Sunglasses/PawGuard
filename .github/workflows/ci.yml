@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Format, test, and analyze
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: brew install xcodegen shellcheck
+
+      # The same gate as `make check`: script lint, swift-format, the full test
+      # suite, and static analysis. Everything builds unsigned, which is all CI
+      # needs; signing only matters for Accessibility on a real machine.
+      - name: Run checks
+        run: make check
+
+      - name: Fail if the generated project is out of date
+        run: git diff --exit-code -- PawGuard.xcodeproj

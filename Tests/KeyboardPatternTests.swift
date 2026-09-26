@@ -321,36 +321,140 @@ final class KeyboardPatternTests: XCTestCase {
         )
     }
 
-    // MARK: - Physical key reconciliation
+    // MARK: - Lock lifetime
 
-    func testReconciliationAdoptsKeysHeldBeforeMonitoringStarted() {
-        let engine = makeEngine()
-        // No events were ever seen; the paw was already on the keyboard when
-        // monitoring started. With no impact timing to go on, the evidence is
-        // the hold itself, so it takes a couple of seconds to mature.
-        engine.reconcileHeldKeys(with: [3, 5, 4], at: 100)
-        XCTAssertEqual(engine.evaluateHeldKeys(at: 100.5).heldKeyCount, 3)
-        XCTAssertFalse(engine.state.isLocked)
-
-        let result = engine.evaluateHeldKeys(at: 102)
-        XCTAssertEqual(result.heldKeyCount, 3)
-        XCTAssertEqual(result.confidence, .cat)
-        XCTAssertTrue(engine.state.isLocked)
-    }
-
-    func testReconciliationDropsKeysWhoseKeyUpWasLost() {
-        let engine = makeEngine()
-        for (index, key) in [3, 5, 4].enumerated() {
-            _ = engine.process(makeSample(CGKeyCode(key), time: Double(index) * 0.02, type: .keyDown))
+    /// The lock must end on time even when the main actor's tick is late — a
+    /// tracking loop or App Nap can hold it off — so the tap thread checks the
+    /// deadline itself on the next event.
+    func testExpiredLockEndsOnTheNextEventWithoutATick() {
+        let clock = TestClock()
+        let engine = makeEngine(lockDuration: 20, clock: clock)
+        for (index, key) in [3, 5, 4, 9, 11, 45].enumerated() {
+            _ = engine.process(makeSample(CGKeyCode(key), time: Double(index) * 0.01, type: .keyDown))
         }
-        // The hardware says nothing is down, so the inferred holds were stale.
-        engine.reconcileHeldKeys(with: [], at: 0.5)
-        let result = engine.evaluateHeldKeys(at: 0.8)
-        XCTAssertEqual(result.heldKeyCount, 0)
-        XCTAssertFalse(engine.state.isLocked)
+        XCTAssertTrue(engine.state.isLocked)
+
+        clock.advance(by: 21)
+        XCTAssertTrue(engine.process(makeSample(0, time: 30, type: .keyDown)), "input after the deadline is delivered")
+        guard case .cooldown = engine.state else {
+            return XCTFail("an expired lock should move to cooldown without waiting for advance(at:)")
+        }
+        XCTAssertEqual(engine.lastLockEnding, .expired)
     }
 
-    func testStaleHoldsExpireEvenWithoutReconciliation() {
+    func testLockEndingRecordsHowTheLockEnded() {
+        let engine = makeEngine()
+        let pawKeys = [3, 5, 4, 9, 11, 45]
+        for (index, key) in pawKeys.enumerated() {
+            _ = engine.process(makeSample(CGKeyCode(key), time: Double(index) * 0.01, type: .keyDown))
+        }
+        XCTAssertNil(engine.lastLockEnding, "a lock in force has not ended")
+        engine.unlock()
+        XCTAssertEqual(engine.lastLockEnding, .unlocked)
+
+        engine.reset()
+        for (index, key) in pawKeys.enumerated() {
+            _ = engine.process(makeSample(CGKeyCode(key), time: 10 + Double(index) * 0.01, type: .keyDown))
+        }
+        XCTAssertTrue(engine.state.isLocked)
+        let emergencyFlags = CGEventFlags.maskControl.union(.maskAlternate).union(.maskCommand)
+        _ = engine.process(makeSample(53, time: 11, type: .keyDown, modifiers: emergencyFlags))
+        XCTAssertEqual(engine.lastLockEnding, .emergencyUnlock)
+    }
+
+    // MARK: - A paw that stays put
+
+    /// A paw parked on a key through a whole lock produces nothing but
+    /// autorepeats afterwards: its press was withheld, and the cooldown reset
+    /// the detector. Those repeats must still be recognised as a held key.
+    func testPawParkedThroughALockIsCaughtAgainFromItsRepeats() {
+        let clock = TestClock()
+        let engine = makeEngine(lockDuration: 20, clock: clock)
+        for (index, key) in [3, 5, 4, 9, 11, 45].enumerated() {
+            _ = engine.process(makeSample(CGKeyCode(key), time: Double(index) * 0.01, type: .keyDown))
+        }
+        XCTAssertTrue(engine.state.isLocked)
+
+        // Lock and cooldown both run out.
+        clock.advance(by: 21)
+        _ = engine.advance(at: 21)
+        clock.advance(by: DetectionRules.cooldown + 1)
+        _ = engine.advance(at: 25)
+        XCTAssertEqual(engine.state, .monitoring)
+
+        // Only repeats of F arrive from here on.
+        var time = 25.0
+        while time < 35, !engine.state.withholdsInput {
+            _ = engine.process(makeSample(3, time: time, type: .keyDown, isRepeat: true))
+            time += 0.09
+        }
+        XCTAssertTrue(engine.state.withholdsInput, "a parked paw must not stream repeats into the app forever")
+        XCTAssertLessThan(time, 30, "and it should be caught within a few seconds")
+    }
+
+    func testAnAdoptedRepeatCountsAsAHeldKey() {
+        let detector = CatDetector()
+        let result = detector.process(makeSample(3, time: 5, type: .keyDown, isRepeat: true))
+        XCTAssertEqual(result.heldKeyCount, 1)
+        XCTAssertEqual(detector.currentHeldKeys, [3])
+    }
+
+    // MARK: - Undo accounting
+
+    private func lockAfterDelivering(_ samples: [KeyboardEventSample], engine: KeyboardEngine) -> ProtectionEvent? {
+        var event: ProtectionEvent?
+        engine.onCatDetected = { event = $0 }
+        for sample in samples {
+            XCTAssertTrue(engine.process(sample))
+        }
+        // Force the lock from a clean detector so the counted history is
+        // exactly what was delivered above.
+        let start = (samples.last?.timestamp ?? 0) + 0.05
+        for (index, key) in [3, 5, 4, 9, 11, 45].enumerated() {
+            _ = engine.process(makeSample(CGKeyCode(key), time: start + Double(index) * 0.01, type: .keyDown))
+        }
+        return event
+    }
+
+    func testUndoCountsEveryAutorepeatTheAppReceived() {
+        let engine = makeEngine()
+        var samples = [makeSample(3, time: 0, type: .keyDown)]
+        for index in 0..<5 {
+            samples.append(makeSample(3, time: 0.4 + Double(index) * 0.09, type: .keyDown, isRepeat: true))
+        }
+        samples.append(makeSample(3, time: 0.9, type: .keyUp))
+        let event = lockAfterDelivering(samples, engine: engine)
+        XCTAssertTrue(engine.state.isLocked)
+        // One press and five repeats of F, plus the paw keys that got through
+        // before the lock landed: every one is a character on screen.
+        XCTAssertGreaterThanOrEqual(event?.deliveredKeystrokes ?? 0, 6)
+    }
+
+    func testUndoIsWithheldWhenAReturnGotThrough() {
+        let engine = makeEngine()
+        let samples = [
+            makeSample(3, time: 0, type: .keyDown),
+            makeSample(3, time: 0.05, type: .keyUp),
+            makeSample(36, time: 0.1, type: .keyDown),
+            makeSample(36, time: 0.15, type: .keyUp),
+        ]
+        let event = lockAfterDelivering(samples, engine: engine)
+        XCTAssertTrue(engine.state.isLocked)
+        XCTAssertEqual(event?.deliveredKeystrokes, 0, "backspacing cannot take back a Return")
+    }
+
+    func testUndoIsWithheldWhenAShortcutGotThrough() {
+        let engine = makeEngine()
+        let samples = [
+            makeSample(1, time: 0, type: .keyDown, modifiers: .maskCommand),
+            makeSample(1, time: 0.05, type: .keyUp, modifiers: .maskCommand),
+        ]
+        let event = lockAfterDelivering(samples, engine: engine)
+        XCTAssertTrue(engine.state.isLocked)
+        XCTAssertEqual(event?.deliveredKeystrokes, 0, "a shortcut typed no text for backspace to remove")
+    }
+
+    func testStaleHoldsExpire() {
         let detector = CatDetector()
         _ = detector.process(makeSample(3, time: 0, type: .keyDown))
         let result = detector.evaluate(at: DetectionRules.staleHoldTimeout + 5)

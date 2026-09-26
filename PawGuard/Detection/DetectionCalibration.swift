@@ -48,9 +48,14 @@ struct CalibrationProfile: Codable, Equatable {
 
 /// Learns from the user instead of shipping one set of constants for everyone.
 ///
-/// The signal is free and unambiguous: hitting emergency unlock seconds after a
-/// lock means PawGuard was wrong. Letting the lock run its course means it was
-/// right.
+/// The labels come from how a lock ends. Telling PawGuard "that was me", or
+/// reaching for the emergency shortcut seconds after a lock, means it was
+/// wrong. Letting the lock run its course, or dismissing it with Unlock Now
+/// after dealing with the cat, means it was right.
+///
+/// A quick Unlock Now is deliberately *not* read as a mistake: shooing the cat
+/// and clicking Unlock is the normal way a correct lock ends, and treating it
+/// as a false positive made PawGuard less sensitive every time it worked.
 @MainActor
 final class CalibrationStore: ObservableObject {
     @Published private(set) var profile: CalibrationProfile
@@ -63,7 +68,15 @@ final class CalibrationStore: ObservableObject {
     static let maximumLearnableChordSize = 4
     /// How many overlap samples accumulate before the profile is updated.
     static let calibrationBatchSize = 400
+    /// How long a passive observation waits before it counts as the user's own
+    /// typing. A cat's first steps look exactly like heavy overlap and arrive
+    /// just before the lock they cause; holding observations back this long
+    /// lets a detection throw them away instead of letting the cat teach
+    /// PawGuard to ignore cats.
+    static let observationDelay: TimeInterval = 5
 
+    /// Observations not yet old enough to trust, oldest first.
+    private var heldObservations: [(date: Date, isHeavy: Bool, keyRate: Double)] = []
     private var pendingOverlapSamples = 0
     private var pendingHeavyOverlaps = 0
     private var pendingPeakKeyRate: Double = 0
@@ -75,7 +88,7 @@ final class CalibrationStore: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: profileKey),
-            let decoded = try? JSONDecoder().decode(CalibrationProfile.self, from: data)
+            let decoded = LenientDecoding.decode(CalibrationProfile.self, from: data, fallback: CalibrationProfile())
         {
             profile = decoded
         } else {
@@ -98,6 +111,8 @@ final class CalibrationStore: ObservableObject {
     }
 
     func recordDetection(_ result: DetectionResult) {
+        // Whatever led up to this was the cat, not the user.
+        heldObservations.removeAll()
         recentDetections.insert(DetectionSnapshot(result: result), at: 0)
         if recentDetections.count > Self.historyLimit {
             recentDetections.removeLast(recentDetections.count - Self.historyLimit)
@@ -105,7 +120,7 @@ final class CalibrationStore: ObservableObject {
         saveHistory()
     }
 
-    /// The user dismissed a lock almost immediately: PawGuard was wrong.
+    /// The user said the lock was a mistake: PawGuard was wrong.
     func recordFalsePositive() {
         guard !recentDetections.isEmpty else { return }
         recentDetections[0].wasFalsePositive = true
@@ -149,11 +164,22 @@ final class CalibrationStore: ObservableObject {
     /// This runs on every keystroke, so it accumulates into plain counters and
     /// only touches the published profile once a batch completes. Publishing
     /// per keystroke would redraw the whole UI as fast as the user can type.
-    func observe(_ features: DetectionFeatures) {
-        guard features.simultaneousCount >= 1 else { return }
+    func observe(_ features: DetectionFeatures, at date: Date = .now) {
+        if features.simultaneousCount >= 1 {
+            heldObservations.append((date, features.simultaneousCount >= 3, features.keyRate))
+        }
+        let settled = heldObservations.prefix { date.timeIntervalSince($0.date) >= Self.observationDelay }
+        guard !settled.isEmpty else { return }
+        heldObservations.removeFirst(settled.count)
+        for observation in settled {
+            accumulate(isHeavy: observation.isHeavy, keyRate: observation.keyRate)
+        }
+    }
+
+    private func accumulate(isHeavy: Bool, keyRate: Double) {
         pendingOverlapSamples += 1
-        if features.simultaneousCount >= 3 { pendingHeavyOverlaps += 1 }
-        pendingPeakKeyRate = max(pendingPeakKeyRate, features.keyRate)
+        if isHeavy { pendingHeavyOverlaps += 1 }
+        pendingPeakKeyRate = max(pendingPeakKeyRate, keyRate)
         guard pendingOverlapSamples >= Self.calibrationBatchSize else { return }
 
         profile.overlapSampleCount = pendingOverlapSamples
@@ -172,6 +198,7 @@ final class CalibrationStore: ObservableObject {
     func resetLearning() {
         profile = CalibrationProfile()
         recentDetections = []
+        heldObservations = []
         pendingOverlapSamples = 0
         pendingHeavyOverlaps = 0
         pendingPeakKeyRate = 0

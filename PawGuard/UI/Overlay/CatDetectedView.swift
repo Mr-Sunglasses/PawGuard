@@ -10,6 +10,8 @@ struct CatDetectedView: View {
     let undoableKeystrokes: Int
     let onUnlock: () -> Void
     let onUndo: () -> Void
+    /// "That was me": unlocks and tells PawGuard the detection was wrong.
+    let onFalseAlarm: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
@@ -71,6 +73,12 @@ struct CatDetectedView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.regular)
                     .help("Removes the characters that reached the app before PawGuard stepped in.")
+                }
+                if !isTest {
+                    Button("It Was Me", action: onFalseAlarm)
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
+                        .help("Unlocks the keyboard and teaches PawGuard that this was not your cat.")
                 }
                 Button(isTest ? "Close Preview" : "Unlock Now", action: onUnlock)
                     .buttonStyle(.borderedProminent)

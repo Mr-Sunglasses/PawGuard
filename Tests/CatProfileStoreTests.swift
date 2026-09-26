@@ -26,6 +26,25 @@ final class CatProfileStoreTests: XCTestCase {
         XCTAssertEqual(restored.activeProfile?.photoPaths.count, 2)
     }
 
+    func testDeletingTheActiveProfileHandsOverToTheNextOne() {
+        let suiteName = "PawGuardTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = CatProfileStore(defaults: defaults)
+        let milo = store.createProfile(name: "Milo")
+        let luna = store.createProfile(name: "Luna")
+        XCTAssertEqual(store.activeProfile?.id, luna.id)
+
+        store.deleteProfile(luna.id)
+        XCTAssertEqual(store.activeProfile?.id, milo.id)
+        XCTAssertEqual(CatProfileStore(defaults: defaults).profiles.map(\.id), [milo.id])
+
+        store.deleteProfile(milo.id)
+        XCTAssertNil(store.activeProfile)
+        XCTAssertNil(CatProfileStore(defaults: defaults).activeProfile)
+    }
+
     func testProfileWithoutPhotoUsesGenericFallbackData() {
         let profile = CatProfile(name: "Oscar")
         XCTAssertNil(profile.selectedPhotoPath)

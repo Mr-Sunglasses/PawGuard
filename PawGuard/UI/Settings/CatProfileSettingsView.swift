@@ -3,8 +3,10 @@ import UniformTypeIdentifiers
 
 struct CatProfileSettingsView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.openWindow) private var openWindow
     @State private var name = ""
     @State private var showingImporter = false
+    @State private var confirmingDeletion = false
 
     private var profile: CatProfile? { appState.activeCat }
 
@@ -58,8 +60,27 @@ struct CatProfileSettingsView: View {
                 }
                 Button("Add or replace photos…") { showingImporter = true }
             }
+
+            if let profile {
+                Section {
+                    Button("Delete \(profile.displayName)’s Profile…", role: .destructive) {
+                        confirmingDeletion = true
+                    }
+                    Text("Removes the name and every photo PawGuard stored for this cat. Detection is unaffected.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
+        .confirmationDialog(
+            "Delete \(profile?.displayName ?? "this cat")’s profile?",
+            isPresented: $confirmingDeletion
+        ) {
+            Button("Delete Profile", role: .destructive) { deleteProfile() }
+        } message: {
+            Text("Its photos are removed from this Mac. PawGuard will ask you to set up a cat again if none remain.")
+        }
         .onAppear { name = profile?.name ?? "" }
         .fileImporter(
             isPresented: $showingImporter,
@@ -72,6 +93,13 @@ struct CatProfileSettingsView: View {
 
     private var accent: Color {
         PawGuardStyle.accent(for: appState.settingsStore.settings.accentTheme)
+    }
+
+    private func deleteProfile() {
+        guard let profile else { return }
+        appState.deleteCatProfile(profile.id)
+        name = appState.activeCat?.name ?? ""
+        if appState.needsOnboarding { openWindow(id: "setup") }
     }
 
     private func saveName() {

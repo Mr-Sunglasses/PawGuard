@@ -68,6 +68,16 @@ final class CatProfileStore: ObservableObject {
         update(profile)
     }
 
+    /// Removes a profile. If it was the active one, the next remaining profile
+    /// takes over; with none left, PawGuard asks for setup again.
+    func deleteProfile(_ profileID: UUID) {
+        profiles.removeAll { $0.id == profileID }
+        if activeProfileID == profileID {
+            activeProfileID = profiles.first?.id
+        }
+        save()
+    }
+
     func removePhoto(at index: Int) {
         guard var profile = activeProfile, profile.photoPaths.indices.contains(index) else { return }
         profile.photoPaths.remove(at: index)

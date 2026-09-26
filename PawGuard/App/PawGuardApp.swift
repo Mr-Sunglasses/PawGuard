@@ -14,7 +14,11 @@ struct PawGuardApp: App {
             // content is not built until the user clicks the icon. Setup used to
             // be opened from there, so a first-time user saw nothing at all
             // until they thought to open a menu they had no reason to open.
-            MenuBarLabel(isLocked: appState.isLocked, shouldOfferSetup: appState.shouldOfferSetupOnLaunch)
+            MenuBarLabel(
+                isLocked: appState.isLocked,
+                isPaused: appState.isManuallyPaused,
+                shouldOfferSetup: appState.shouldOfferSetupOnLaunch
+            )
         }
         .menuBarExtraStyle(.window)
 
@@ -38,13 +42,14 @@ struct PawGuardApp: App {
 /// this a first run is completely silent.
 private struct MenuBarLabel: View {
     let isLocked: Bool
+    let isPaused: Bool
     /// Returns true exactly once, the first time setup is due.
     let shouldOfferSetup: () -> Bool
 
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Label("PawGuard", systemImage: isLocked ? "lock.fill" : "pawprint.fill")
+        Label("PawGuard", systemImage: isLocked ? "lock.fill" : (isPaused ? "pause.circle" : "pawprint.fill"))
             .task {
                 guard shouldOfferSetup() else { return }
                 openWindow(id: "setup")

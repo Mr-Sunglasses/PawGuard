@@ -8,7 +8,7 @@ protocol AccessibilityGranting: AnyObject {
     func requestAccess()
     func openSettings()
     func relaunch()
-    func resetAccess(completion: @escaping (Bool) -> Void)
+    func resetAccess(completion: @escaping @Sendable (Bool) -> Void)
 }
 
 final class AccessibilityManager: AccessibilityGranting {
@@ -17,7 +17,9 @@ final class AccessibilityManager: AccessibilityGranting {
     }
 
     func requestAccess() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        // The literal value of `kAXTrustedCheckOptionPrompt`. The imported
+        // global is a mutable C variable, which strict concurrency rejects.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         openSettings()
     }
@@ -48,7 +50,7 @@ final class AccessibilityManager: AccessibilityGranting {
         }
     }
 
-    func resetAccess(completion: @escaping (Bool) -> Void) {
+    func resetAccess(completion: @escaping @Sendable (Bool) -> Void) {
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.pawguard.app"
         DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()

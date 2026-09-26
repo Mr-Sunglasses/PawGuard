@@ -2,7 +2,6 @@ import Foundation
 
 enum ProtectionState: Equatable {
     case monitoring
-    case suspicious(score: Int)
     /// Input is being withheld while a borderline detection is confirmed.
     /// Ends either in a lock or in the withheld input being replayed.
     case grace(until: Date)
@@ -33,15 +32,6 @@ final class ProtectionManager {
         lock.lock()
         defer { lock.unlock() }
         return currentState
-    }
-
-    @discardableResult
-    func markSuspicious(score: Int) -> ProtectionState {
-        lock.lock()
-        currentState = .suspicious(score: score)
-        let result = currentState
-        lock.unlock()
-        return result
     }
 
     @discardableResult

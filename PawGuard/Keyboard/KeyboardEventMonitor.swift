@@ -21,12 +21,22 @@ protocol KeyboardMonitoring: AnyObject {
 /// every keystroke on the system would be dispatched behind SwiftUI rendering,
 /// so a slow frame delays input machine-wide and a slow enough one makes macOS
 /// disable the tap outright.
-final class KeyboardEventMonitor: KeyboardMonitoring {
+///
+/// `@unchecked Sendable` because the tap thread and the main actor share it:
+/// every mutable field is guarded by `stateLock`, and lifecycle changes are
+/// serialised by `lifecycleLock`.
+final class KeyboardEventMonitor: KeyboardMonitoring, @unchecked Sendable {
     private let handler: (KeyboardEventSample) -> Bool
     private let interruptionHandler: () -> Void
     private let logger = Logger(subsystem: "com.pawguard.app", category: "keyboard")
 
     private let stateLock = NSLock()
+    /// Serialises `start`, `stop`, and `recover`. They are called from the
+    /// main actor (permission changes) and from the tap thread itself (a tap
+    /// macOS disabled), and two of them interleaving could leave two taps
+    /// installed or the thread handle pointing at the wrong one. Recursive
+    /// because `recover` rebuilds through `stop` and `start`.
+    private let lifecycleLock = NSRecursiveLock()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var tapRunLoop: CFRunLoop?
@@ -34,7 +44,9 @@ final class KeyboardEventMonitor: KeyboardMonitoring {
     private var running = false
     private var startError: String?
 
-    private(set) var timeoutCount = 0
+    /// Only touched from inside the tap callback, which runs on one tap thread
+    /// at a time.
+    private var timeoutCount = 0
 
     var isRunning: Bool {
         stateLock.lock()
@@ -75,6 +87,8 @@ final class KeyboardEventMonitor: KeyboardMonitoring {
 
     @discardableResult
     func start() -> Bool {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
         if isRunning { return true }
 
         let ready = DispatchSemaphore(value: 0)
@@ -112,12 +126,17 @@ final class KeyboardEventMonitor: KeyboardMonitoring {
         return succeeded
     }
 
-    /// Carries `installTap`'s result off the tap thread.
-    private final class StartOutcome {
+    /// Carries `installTap`'s result off the tap thread. Written before the
+    /// semaphore is signalled and read only after it is waited on, which is the
+    /// synchronisation the compiler cannot see.
+    private final class StartOutcome: @unchecked Sendable {
         var succeeded = false
     }
 
     func stop() {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+
         stateLock.lock()
         let tap = eventTap
         let source = runLoopSource
@@ -128,7 +147,12 @@ final class KeyboardEventMonitor: KeyboardMonitoring {
         running = false
         stateLock.unlock()
 
-        if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let tap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            // Without this the port outlives the tap, and every rebuild after
+            // a timeout leaks one.
+            CFMachPortInvalidate(tap)
+        }
         if let source, let loop {
             CFRunLoopRemoveSource(loop, source, .commonModes)
             CFRunLoopWakeUp(loop)
@@ -140,6 +164,9 @@ final class KeyboardEventMonitor: KeyboardMonitoring {
     /// Re-enables a tap macOS switched off. If the port itself is gone, builds
     /// a new one rather than leaving the app silently unprotected.
     func recover() {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+
         stateLock.lock()
         let tap = eventTap
         stateLock.unlock()

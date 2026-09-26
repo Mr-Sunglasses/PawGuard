@@ -41,6 +41,7 @@ final class AppState: ObservableObject {
         accessibility.onMonitoringLost = { [weak protection] in
             protection?.teardownForPermissionLoss()
         }
+        syncLaunchAtLogin()
 
         for publisher in [
             settingsStore.objectWillChange.eraseToAnyPublisher(),
@@ -70,6 +71,13 @@ final class AppState: ObservableObject {
 
     func testCatMode() { protection.testCatMode() }
     func unlockNow() { protection.unlockNow() }
+    func reportFalseAlarm() { protection.reportFalseAlarm() }
+
+    var isManuallyPaused: Bool { protection.isPaused }
+    var pausedUntil: Date? { protection.pausedUntil }
+    /// Pauses protection for `duration`, or until resumed when nil.
+    func pauseProtection(for duration: TimeInterval?) { protection.pause(for: duration) }
+    func resumeProtection() { protection.resume() }
     func dismissTestOverlay() { protection.dismissTestOverlay() }
     func undoCatTyping() { protection.undoCatTyping() }
 
@@ -128,6 +136,7 @@ final class AppState: ObservableObject {
     var statusTitle: String {
         if !keyboardMonitoringAvailable { return "Protection unavailable" }
         if isLocked { return "Protected" }
+        if isManuallyPaused { return "Paused" }
         if isSecureInputActive { return "Paused for secure input" }
         if isProtectionPaused { return "Paused for this app" }
         return "Watching for tiny paws"
@@ -139,6 +148,10 @@ final class AppState: ObservableObject {
             return "PawGuard cannot start its keyboard monitor. Use a signed build or repair permission."
         }
         if isLocked { return "Keyboard input is temporarily paused." }
+        if isManuallyPaused, let pausedUntil {
+            if pausedUntil == .distantFuture { return "Protection is off until you resume it." }
+            return "Protection resumes at \(pausedUntil.formatted(date: .omitted, time: .shortened))."
+        }
         if isSecureInputActive {
             return "A password field has secure input turned on, so no app can observe the keyboard."
         }
@@ -198,6 +211,12 @@ final class AppState: ObservableObject {
         profileStore.updateName(name, for: profileID)
     }
 
+    /// Deletes a cat profile and the photos PawGuard copied for it.
+    func deleteCatProfile(_ profileID: UUID) {
+        photoManager.deletePhotos(for: profileID)
+        profileStore.deleteProfile(profileID)
+    }
+
     // MARK: - App rules
 
     func disableProtection(forBundleIdentifier identifier: String) {
@@ -210,19 +229,28 @@ final class AppState: ObservableObject {
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
-        if #available(macOS 13.0, *) {
-            do {
-                if enabled {
-                    try SMAppService.mainApp.register()
-                } else {
-                    try SMAppService.mainApp.unregister()
-                }
-                settingsStore.settings.launchAtLogin = enabled
-            } catch {
-                settingsStore.settings.launchAtLogin = false
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
             }
-        } else {
-            settingsStore.settings.launchAtLogin = false
+        } catch {
+            // Fall through: the system's answer below is the truth either way.
+        }
+        syncLaunchAtLogin()
+    }
+
+    /// The user can switch login items off in System Settings behind
+    /// PawGuard's back, so the stored preference follows the system rather
+    /// than the other way round.
+    private func syncLaunchAtLogin() {
+        // Registered-but-awaiting-approval still counts as on: the user asked
+        // for it, and System Settings is where they finish the job.
+        let status = SMAppService.mainApp.status
+        let enabled = status == .enabled || status == .requiresApproval
+        if settingsStore.settings.launchAtLogin != enabled {
+            settingsStore.settings.launchAtLogin = enabled
         }
     }
 }

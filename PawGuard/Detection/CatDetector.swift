@@ -93,10 +93,14 @@ final class CatDetector {
         latestModifiers = sample.modifiers
         switch sample.type {
         case .keyDown:
+            // An autorepeat for a key the detector is not tracking is proof the
+            // key is down: its original press was withheld during a lock, fell
+            // in the cooldown that resets the detector, or came before
+            // monitoring started. Adopting it is what lets a paw that stays
+            // parked through all of that be caught again, rather than
+            // streaming repeats into the app forever.
             if !KeyboardGeometry.isModifier(sample.keyCode) {
-                if !sample.isRepeat {
-                    heldKeys[sample.keyCode] = heldKeys[sample.keyCode] ?? sample.timestamp
-                }
+                heldKeys[sample.keyCode] = heldKeys[sample.keyCode] ?? sample.timestamp
             }
         case .keyUp:
             heldKeys.removeValue(forKey: sample.keyCode)
@@ -115,22 +119,6 @@ final class CatDetector {
         eventBuffer.trim(through: timestamp)
         dropStaleHolds(at: timestamp)
         return currentResult(at: timestamp)
-    }
-
-    /// Replaces the inferred held-key set with the hardware's own view.
-    ///
-    /// `CGEventSource.keyState` reports what is physically down, which fixes
-    /// key-ups lost to a disabled tap and catches a paw that was already
-    /// resting on the keyboard before monitoring started.
-    func reconcileHeldKeys(with physicalKeys: Set<CGKeyCode>, at timestamp: TimeInterval) {
-        for key in heldKeys.keys where !physicalKeys.contains(key) {
-            heldKeys.removeValue(forKey: key)
-        }
-        for key in physicalKeys where !KeyboardGeometry.isModifier(key) {
-            if heldKeys[key] == nil {
-                heldKeys[key] = timestamp
-            }
-        }
     }
 
     /// Drops keys whose key-up never arrived. Without this a lost event pins a

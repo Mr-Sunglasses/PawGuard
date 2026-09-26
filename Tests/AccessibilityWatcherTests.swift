@@ -12,7 +12,7 @@ private final class FakeAccessibilityManager: AccessibilityGranting {
     func requestAccess() { requestCount += 1 }
     func openSettings() { openSettingsCount += 1 }
     func relaunch() { relaunchCount += 1 }
-    func resetAccess(completion: @escaping (Bool) -> Void) { completion(true) }
+    func resetAccess(completion: @escaping @Sendable (Bool) -> Void) { completion(true) }
 }
 
 /// Stands in for the event tap, so nothing here touches the real keyboard.

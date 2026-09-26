@@ -94,7 +94,7 @@ final class SettingsStore: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: key),
-            let decoded = try? JSONDecoder().decode(PawGuardSettings.self, from: data)
+            let decoded = LenientDecoding.decode(PawGuardSettings.self, from: data, fallback: PawGuardSettings())
         {
             settings = decoded
         } else {

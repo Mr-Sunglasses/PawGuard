@@ -10,6 +10,7 @@ struct StatisticsView: View {
                 StatisticRow(icon: "pawprint.fill", label: "Cat interventions", value: "\(stats.detectionCount)")
                 StatisticRow(icon: "keyboard.fill", label: "Accidental keys blocked", value: "\(stats.blockedEventCount)")
                 StatisticRow(icon: "shield.fill", label: "Protection time", value: formattedDuration(stats.totalProtectionDuration))
+                StatisticRow(icon: "hand.raised.fill", label: "False alarms", value: "\(stats.falseAlarmCount)")
             }
             if let date = stats.lastDetectionDate {
                 Section {
